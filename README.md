@@ -1,36 +1,127 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Hirzo
 
-## Getting Started
+End-to-end job board built with **Next.js** and **MongoDB**.
 
-First, run the development server:
+This phase implements the **employer backend**: auth, job posts with qualification + video questions, and applicant pipeline (review → shortlist → interview → hire).
+
+## Setup
+
+1. Copy env template and fill values:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Required:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `MONGODB_URI` — MongoDB Atlas connection string (database name `hirzo`)
+- `JWT_SECRET` — long random secret for employer sessions
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. Install & run:
 
-## Learn More
+```bash
+npm install
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Employer API
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+All employer routes use an httpOnly cookie session (`hirzo_employer_session`).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Auth
 
-## Deploy on Vercel
+| Method | Path | Body |
+|--------|------|------|
+| `POST` | `/api/auth/register` | `{ email, password, companyName, contactName }` |
+| `POST` | `/api/auth/login` | `{ email, password }` |
+| `POST` | `/api/auth/logout` | — |
+| `GET` | `/api/auth/me` | — |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Jobs
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Method | Path | Notes |
+|--------|------|------|
+| `GET` | `/api/employers/jobs` | List employer's jobs |
+| `POST` | `/api/employers/jobs` | Create job + questions |
+| `GET` | `/api/employers/jobs/:jobId` | Get one job |
+| `PATCH` | `/api/employers/jobs/:jobId` | Update job / questions / status |
+| `DELETE` | `/api/employers/jobs/:jobId` | Delete job |
+
+Create/update job body example:
+
+```json
+{
+  "title": "Frontend Engineer",
+  "description": "Build candidate and employer experiences...",
+  "location": "Remote (UK)",
+  "employmentType": "full_time",
+  "salaryMin": 50000,
+  "salaryMax": 70000,
+  "currency": "GBP",
+  "status": "published",
+  "qualificationQuestions": [
+    {
+      "question": "How many years of React experience?",
+      "type": "text",
+      "required": true
+    },
+    {
+      "question": "Are you eligible to work in the UK?",
+      "type": "yes_no",
+      "required": true
+    },
+    {
+      "question": "Preferred work style",
+      "type": "multiple_choice",
+      "options": ["Remote", "Hybrid", "Office"],
+      "required": true
+    }
+  ],
+  "videoQuestions": [
+    {
+      "question": "Introduce yourself and why you want this role",
+      "maxDurationSeconds": 90,
+      "required": true
+    }
+  ]
+}
+```
+
+### Applications (employer)
+
+| Method | Path | Notes |
+|--------|------|------|
+| `GET` | `/api/employers/jobs/:jobId/applications?status=` | List / filter applicants |
+| `GET` | `/api/employers/applications/:applicationId` | Review CV + answers |
+| `PATCH` | `/api/employers/applications/:applicationId` | Update pipeline status |
+
+Status values: `applied` → `shortlisted` → `interview` → `hired` (or `rejected`).
+
+Setting status to `interview` generates an invite token for later candidate email login.
+
+```json
+{ "status": "shortlisted", "notes": "Strong CV, good video answers" }
+```
+
+### Public (for candidates later)
+
+| Method | Path | Notes |
+|--------|------|------|
+| `GET` | `/api/jobs/public` | Published jobs |
+| `POST` | `/api/applications` | Apply without an account |
+
+## Pipeline
+
+```
+Employer registers/logs in
+  → posts job + qualification/video questions
+  → candidate applies (public)
+  → employer reviews CV & answers
+  → shortlist / interview / hire / reject
+```
+
+## Next
+
+- Employer dashboard UI
+- Candidate apply + video upload UI
+- Candidate email invite login for interviews

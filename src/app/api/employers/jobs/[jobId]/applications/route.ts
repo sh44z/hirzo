@@ -51,6 +51,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     }
 
     const applications = (await Application.find(filter)
+      .select("-cvFileData")
       .sort({ createdAt: -1 })
       .lean()) as unknown as Array<Record<string, unknown> & { _id: { toString(): string }; jobId: { toString(): string }; employerId: { toString(): string } }>;
 
@@ -69,6 +70,9 @@ export async function GET(request: NextRequest, { params }: Params) {
         candidatePhone: app.candidatePhone,
         cvUrl: app.cvUrl,
         cvFileName: app.cvFileName,
+        cvDownloadUrl: app.cvFileName
+          ? `/api/employers/applications/${app._id.toString()}/cv`
+          : undefined,
         qualificationAnswers: app.qualificationAnswers,
         videoAnswers: app.videoAnswers,
         status: app.status,

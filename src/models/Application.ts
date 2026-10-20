@@ -14,6 +14,8 @@ export interface IApplication {
   candidatePhone?: string;
   cvUrl?: string;
   cvFileName?: string;
+  cvMimeType?: string;
+  cvFileData?: Buffer;
   qualificationAnswers: QualificationAnswer[];
   videoAnswers: VideoAnswer[];
   status: ApplicationStatus;
@@ -64,6 +66,8 @@ const ApplicationSchema = new Schema<IApplication>(
     candidatePhone: { type: String, trim: true },
     cvUrl: { type: String },
     cvFileName: { type: String },
+    cvMimeType: { type: String },
+    cvFileData: { type: Buffer },
     qualificationAnswers: {
       type: [QualificationAnswerSchema],
       default: [],

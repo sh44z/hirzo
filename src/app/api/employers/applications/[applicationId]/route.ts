@@ -24,6 +24,9 @@ function serializeApplication(app: InstanceType<typeof Application>) {
     candidatePhone: app.candidatePhone,
     cvUrl: app.cvUrl,
     cvFileName: app.cvFileName,
+    cvDownloadUrl: app.cvFileName
+      ? `/api/employers/applications/${app._id.toString()}/cv`
+      : undefined,
     qualificationAnswers: app.qualificationAnswers,
     videoAnswers: app.videoAnswers,
     status: app.status,
@@ -50,7 +53,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     const application = await Application.findOne({
       _id: applicationId,
       employerId: session.employerId,
-    });
+    }).select("-cvFileData");
 
     if (!application) return notFound("Application not found");
 
@@ -100,7 +103,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const application = await Application.findOne({
       _id: applicationId,
       employerId: session.employerId,
-    });
+    }).select("-cvFileData");
 
     if (!application) return notFound("Application not found");
 

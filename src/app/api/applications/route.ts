@@ -13,7 +13,72 @@ import { Employer } from "@/models/Employer";
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body: unknown;
+    let uploadedCv:
+      | { fileName: string; mimeType: string; data: Buffer }
+      | undefined;
+
+    if (request.headers.get("content-type")?.includes("multipart/form-data")) {
+      const form = await request.formData();
+      let qualificationAnswers: unknown;
+      let videoAnswers: unknown;
+      try {
+        qualificationAnswers = JSON.parse(
+          String(form.get("qualificationAnswers") || "[]"),
+        );
+        videoAnswers = JSON.parse(String(form.get("videoAnswers") || "[]"));
+      } catch {
+        return badRequest("Invalid application answers");
+      }
+
+      const cvFile = form.get("cvFile");
+      if (cvFile !== null) {
+        if (!(cvFile instanceof File)) {
+          return badRequest("Invalid CV file");
+        }
+        if (cvFile.size === 0 || cvFile.size > 4 * 1024 * 1024) {
+          return badRequest("CV must be a non-empty file no larger than 4 MB");
+        }
+        const extension = cvFile.name.split(".").pop()?.toLowerCase();
+        if (extension !== "doc" && extension !== "docx") {
+          return badRequest("CV must be a Word document (.doc or .docx)");
+        }
+        const data = Buffer.from(await cvFile.arrayBuffer());
+        const isDocx = extension === "docx";
+        const isValidWordFile = isDocx
+          ? data[0] === 0x50 && data[1] === 0x4b
+          : data.subarray(0, 8).equals(
+              Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]),
+            );
+        if (!isValidWordFile) {
+          return badRequest("The uploaded file is not a valid Word document");
+        }
+        const fileName = cvFile.name
+          .split(/[\\/]/)
+          .pop()!
+          .replace(/[\u0000-\u001f\u007f]/g, "")
+          .slice(0, 255);
+        uploadedCv = {
+          fileName,
+          mimeType: isDocx
+            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            : "application/msword",
+          data,
+        };
+      }
+
+      body = {
+        jobId: form.get("jobId"),
+        candidateName: form.get("candidateName"),
+        candidateEmail: form.get("candidateEmail"),
+        candidatePhone: form.get("candidatePhone") || undefined,
+        cvUrl: form.get("cvUrl") || undefined,
+        qualificationAnswers,
+        videoAnswers,
+      };
+    } else {
+      body = await request.json();
+    }
     const parsed = createApplicationSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -67,7 +132,9 @@ export async function POST(request: NextRequest) {
         candidateEmail: parsed.data.candidateEmail.toLowerCase(),
         candidatePhone: parsed.data.candidatePhone,
         cvUrl: parsed.data.cvUrl,
-        cvFileName: parsed.data.cvFileName,
+        cvFileName: uploadedCv?.fileName || parsed.data.cvFileName,
+        cvMimeType: uploadedCv?.mimeType,
+        cvFileData: uploadedCv?.data,
         qualificationAnswers: parsed.data.qualificationAnswers,
         videoAnswers: parsed.data.videoAnswers,
         status: "applied",

@@ -25,10 +25,10 @@ export async function GET(request: NextRequest, { params }: Params) {
 
     await connectDB();
 
-    const job = await Job.findOne({
+    const job = (await Job.findOne({
       _id: jobId,
       employerId: session.employerId,
-    }).lean();
+    }).lean()) as { _id: { toString(): string }; title: string; status: string } | null;
 
     if (!job) return notFound("Job not found");
 
@@ -50,9 +50,9 @@ export async function GET(request: NextRequest, { params }: Params) {
       filter.status = status;
     }
 
-    const applications = await Application.find(filter)
+    const applications = (await Application.find(filter)
       .sort({ createdAt: -1 })
-      .lean();
+      .lean()) as unknown as Array<Record<string, unknown> & { _id: { toString(): string }; jobId: { toString(): string }; employerId: { toString(): string } }>;
 
     return NextResponse.json({
       job: {

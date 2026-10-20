@@ -10,14 +10,18 @@ export async function GET() {
 
     const jobs = await Job.find({ status: "published" })
       .select(
-        "title description location employmentType salaryMin salaryMax currency qualificationQuestions videoQuestions createdAt",
+        "title description location employmentType salaryMin salaryMax currency qualificationQuestions videoQuestions createdAt employerId",
       )
+      .populate({ path: "employerId", select: "companyName", match: { active: { $ne: false } } })
       .sort({ createdAt: -1 })
       .lean();
 
     return NextResponse.json({
-      jobs: jobs.map((job) => ({
-        id: job._id.toString(),
+      jobs: jobs.filter((job) => job.employerId).map((job) => ({
+        id: String(job._id),
+        companyName:
+          (job.employerId as unknown as { companyName?: string } | null)
+            ?.companyName || "Confidential employer",
         title: job.title,
         description: job.description,
         location: job.location,

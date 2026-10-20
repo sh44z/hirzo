@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       email: parsed.data.email.toLowerCase(),
     });
 
-    if (!employer) {
+    if (!employer || employer.active === false) {
       return unauthorized("Invalid email or password");
     }
 

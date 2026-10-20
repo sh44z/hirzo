@@ -26,7 +26,7 @@ export async function GET() {
     return NextResponse.json({
       jobs: jobs.map((job) => ({
         ...job,
-        id: job._id.toString(),
+        id: String(job._id),
         employerId: job.employerId.toString(),
         _id: undefined,
       })),

@@ -2,7 +2,7 @@
 
 End-to-end job board built with **Next.js** and **MongoDB**.
 
-This phase implements the **employer backend**: auth, job posts with qualification + video questions, and applicant pipeline (review → shortlist → interview → hire).
+Hirzo includes a public job board, an employer workspace for job management, and a protected backoffice for managing employer and master accounts. The existing API also supports application review and the applicant pipeline.
 
 ## Setup
 
@@ -16,6 +16,7 @@ Required:
 
 - `MONGODB_URI` — MongoDB Atlas connection string (database name `hirzo`)
 - `JWT_SECRET` — long random secret for employer sessions
+- `ADMIN_INITIAL_PASSWORD` — unique initial password for `admin@hirzo.com` (at least 12 characters recommended). The initial master account is created when it first signs in; it is never provisioned with a hard-coded password.
 
 2. Install & run:
 
@@ -23,6 +24,8 @@ Required:
 npm install
 npm run dev
 ```
+
+Visit `/` for the public job board, `/workspace` for employer registration/sign-in and job management, and `/backoffice` for platform administration. Set `ADMIN_INITIAL_PASSWORD` before the first admin login. Signed-in admins can create and deactivate additional master accounts.
 
 ## Employer API
 
@@ -122,6 +125,5 @@ Employer registers/logs in
 
 ## Next
 
-- Employer dashboard UI
-- Candidate apply + video upload UI
+- Candidate application and video upload UI
 - Candidate email invite login for interviews

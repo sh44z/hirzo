@@ -5,6 +5,7 @@ import { badRequest, notFound, serverError } from "@/lib/auth";
 import { createApplicationSchema } from "@/lib/validations";
 import { Job } from "@/models/Job";
 import { Application } from "@/models/Application";
+import { Employer } from "@/models/Employer";
 
 /**
  * Public apply endpoint (no candidate account required).
@@ -29,8 +30,14 @@ export async function POST(request: NextRequest) {
     if (!job || job.status !== "published") {
       return notFound("Job is not open for applications");
     }
+    const employer = (await Employer.findById(job.employerId).select("active").lean()) as { active?: boolean } | null;
+    if (!employer || employer.active === false) {
+      return notFound("Job is not open for applications");
+    }
 
-    const requiredQual = job.qualificationQuestions.filter((q) => q.required);
+    const requiredQual = job.qualificationQuestions.filter(
+      (q: { required: boolean }) => q.required,
+    );
     for (const question of requiredQual) {
       const answer = parsed.data.qualificationAnswers.find(
         (a) => a.questionId === question.id,
@@ -40,7 +47,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const requiredVideo = job.videoQuestions.filter((q) => q.required);
+    const requiredVideo = job.videoQuestions.filter(
+      (q: { required: boolean }) => q.required,
+    );
     for (const question of requiredVideo) {
       const answer = parsed.data.videoAnswers.find(
         (a) => a.questionId === question.id,

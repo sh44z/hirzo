@@ -54,7 +54,12 @@ export async function GET(_request: NextRequest, { params }: Params) {
 
     if (!application) return notFound("Application not found");
 
-    const job = await Job.findById(application.jobId).lean();
+    const job = (await Job.findById(application.jobId).lean()) as {
+      _id: { toString(): string };
+      title: string;
+      qualificationQuestions: unknown[];
+      videoQuestions: unknown[];
+    } | null;
 
     return NextResponse.json({
       application: serializeApplication(application),

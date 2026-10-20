@@ -31,12 +31,20 @@ export async function POST(request: NextRequest) {
     }
 
     const passwordHash = await hashPassword(parsed.data.password);
-    const employer = await Employer.create({
-      email,
-      passwordHash,
-      companyName: parsed.data.companyName,
-      contactName: parsed.data.contactName,
-    });
+    let employer;
+    try {
+      employer = await Employer.create({
+        email,
+        passwordHash,
+        companyName: parsed.data.companyName,
+        contactName: parsed.data.contactName,
+      });
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && (error as { code: number }).code === 11000) {
+        return NextResponse.json({ error: "An employer with this email already exists" }, { status: 409 });
+      }
+      throw error;
+    }
 
     const token = await createSessionToken({
       employerId: employer._id.toString(),

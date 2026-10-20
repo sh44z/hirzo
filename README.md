@@ -18,6 +18,8 @@ Required:
 - `JWT_SECRET` — long random secret for employer sessions
 - `ADMIN_INITIAL_PASSWORD` — unique initial password for `admin@hirzo.com` (at least 12 characters recommended). The initial master account is created when it first signs in; it is never provisioned with a hard-coded password.
 
+Put real local values in `.env.local`; keep `.env.example` as a placeholder-only template. `.env.local` is ignored by Git and must not be committed. For Vercel, configure the same required values in the project's Environment Variables settings.
+
 For a live deployment, add these variables to the hosting provider's production environment settings and redeploy. Confirm the MongoDB database user/password are valid, URL-encode special characters in the connection string, and allow the hosting provider to connect in MongoDB Atlas network access settings. `.env.example` contains placeholders and should not be used as a live connection string.
 
 2. Install & run:

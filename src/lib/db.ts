@@ -26,12 +26,19 @@ export async function connectDB() {
     return cached.conn;
   }
 
-  if (!cached.promise) {
-    cached.promise = mongoose.connect(uri, {
+  const promise =
+    cached.promise ??
+    (cached.promise = mongoose.connect(uri, {
       bufferCommands: false,
-    });
-  }
+    }));
 
-  cached.conn = await cached.promise;
-  return cached.conn;
+  try {
+    cached.conn = await promise;
+    return cached.conn;
+  } catch (error) {
+    if (cached.promise === promise) {
+      cached.promise = null;
+    }
+    throw error;
+  }
 }

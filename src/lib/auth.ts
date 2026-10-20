@@ -16,6 +16,10 @@ function getSecret() {
   return new TextEncoder().encode(JWT_SECRET);
 }
 
+export function assertSessionSecretConfigured() {
+  getSecret();
+}
+
 export interface EmployerSession {
   employerId: string;
   email: string;

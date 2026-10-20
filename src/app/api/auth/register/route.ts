@@ -4,6 +4,7 @@ import {
   createSessionToken,
   hashPassword,
   setSessionCookie,
+  assertSessionSecretConfigured,
   badRequest,
   serverError,
 } from "@/lib/auth";
@@ -19,6 +20,7 @@ export async function POST(request: NextRequest) {
       return badRequest(parsed.error.issues[0]?.message || "Invalid input");
     }
 
+    assertSessionSecretConfigured();
     await connectDB();
 
     const email = parsed.data.email.toLowerCase();

@@ -7,6 +7,7 @@ export interface IEmployer {
   companyName: string;
   contactName: string;
   active: boolean;
+  jobPostingDiscountPercent: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,6 +25,7 @@ const EmployerSchema = new Schema<IEmployer>(
     companyName: { type: String, required: true, trim: true },
     contactName: { type: String, required: true, trim: true },
     active: { type: Boolean, default: true },
+    jobPostingDiscountPercent: { type: Number, min: 0, max: 100, default: 0 },
   },
   { timestamps: true },
 );

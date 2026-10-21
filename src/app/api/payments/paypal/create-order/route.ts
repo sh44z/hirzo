@@ -2,10 +2,15 @@ import mongoose from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
 import { requireEmployerSession, badRequest, serverError } from "@/lib/auth";
 import { createPayPalOrder, getPayPalAccessToken } from "@/lib/paypal";
-import { JOB_POSTING_PLANS } from "@/lib/job-posting-plans";
+import {
+  getJobPostingPrice,
+  JOB_POSTING_PLANS,
+} from "@/lib/job-posting-plans";
+import { createJobForPayment } from "@/lib/job-posting";
 import { normalizeQualificationQuestions } from "@/lib/questions";
 import { createPaidJobPostingSchema } from "@/lib/validations";
 import { JobPostingPayment } from "@/models/JobPostingPayment";
+import { Employer } from "@/models/Employer";
 import { connectDB } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
@@ -27,11 +32,18 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const plan = JOB_POSTING_PLANS[parsed.data.plan];
+    const employer = await Employer.findById(session.employerId)
+      .select("jobPostingDiscountPercent");
+    if (!employer) return badRequest("Employer account not found");
+    const amount = getJobPostingPrice(
+      parsed.data.plan,
+      employer.jobPostingDiscountPercent ?? 0,
+    );
     const payment = await JobPostingPayment.create({
       employerId: new mongoose.Types.ObjectId(session.employerId),
       plan: parsed.data.plan,
-      amount: plan.amount,
-      status: "creating",
+      amount,
+      status: amount === 0 ? "captured" : "creating",
       jobData: {
         title: parsed.data.title,
         description: parsed.data.description,
@@ -47,10 +59,19 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    if (amount === 0) {
+      const job = await createJobForPayment(payment);
+      payment.jobId = job._id;
+      await payment.save();
+      return NextResponse.json({
+        job: { id: job._id.toString(), title: job.title },
+      });
+    }
+
     const accessToken = await getPayPalAccessToken();
     const order = await createPayPalOrder(accessToken, {
       paymentId: payment._id.toString(),
-      amount: plan.amount,
+      amount,
       description: `${plan.name} — ${parsed.data.title}`,
       returnUrl: `${request.nextUrl.origin}/workspace?paypal=success`,
       cancelUrl: `${request.nextUrl.origin}/workspace?paypal=cancelled`,

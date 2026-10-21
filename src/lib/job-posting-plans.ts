@@ -37,3 +37,14 @@ export function isJobPostingPlan(value: unknown): value is JobPostingPlan {
     Object.prototype.hasOwnProperty.call(JOB_POSTING_PLANS, value)
   );
 }
+
+export function getJobPostingPrice(
+  plan: JobPostingPlan,
+  discountPercent = 0,
+): number {
+  return (
+    Math.round(
+      JOB_POSTING_PLANS[plan].amount * (100 - discountPercent),
+    ) / 100
+  );
+}

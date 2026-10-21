@@ -1,16 +1,12 @@
-import mongoose from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { requireEmployerSession, badRequest, notFound, serverError } from "@/lib/auth";
 import { capturePayPalOrder, getPayPalAccessToken } from "@/lib/paypal";
-import {
-  isJobPostingPlan,
-  JOB_POSTING_PLANS,
-} from "@/lib/job-posting-plans";
+import { isJobPostingPlan } from "@/lib/job-posting-plans";
+import { createJobForPayment } from "@/lib/job-posting";
 import { paypalCaptureSchema } from "@/lib/validations";
 import { JobPostingPayment } from "@/models/JobPostingPayment";
 import { Job } from "@/models/Job";
-import type { EmploymentType, QualificationQuestion } from "@/types";
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,7 +51,7 @@ export async function POST(request: NextRequest) {
       );
       const purchaseUnit = result.purchase_units?.[0];
       const capture = purchaseUnit?.payments?.captures?.[0];
-      const expectedAmount = JOB_POSTING_PLANS[postingPlan].amount.toFixed(2);
+      const expectedAmount = payment.amount.toFixed(2);
       if (
         result.status !== "COMPLETED" ||
         capture?.status !== "COMPLETED" ||
@@ -71,31 +67,7 @@ export async function POST(request: NextRequest) {
       await payment.save();
     }
 
-    const jobData = payment.jobData as {
-      title: string;
-      description: string;
-      location: string;
-      employmentType: EmploymentType;
-      salaryMin?: number;
-      salaryMax?: number;
-      currency: string;
-      status: "draft" | "published" | "closed";
-      qualificationQuestions: QualificationQuestion[];
-    };
-    const job = await Job.findOneAndUpdate(
-      { paymentId: payment._id },
-      {
-        $setOnInsert: {
-          employerId: new mongoose.Types.ObjectId(session.employerId),
-          ...jobData,
-          postingPlan,
-          postingPrice: payment.amount,
-          paymentId: payment._id,
-          qualificationQuestions: jobData.qualificationQuestions,
-        },
-      },
-      { new: true, upsert: true, setDefaultsOnInsert: true },
-    );
+    const job = await createJobForPayment(payment);
     payment.jobId = job._id;
     await payment.save();
 

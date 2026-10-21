@@ -1,5 +1,22 @@
 import mongoose, { Schema, models, model } from "mongoose";
 import type { JobPostingPlan } from "@/lib/job-posting-plans";
+import type {
+  EmploymentType,
+  JobStatus,
+  QualificationQuestion,
+} from "@/types";
+
+export interface JobPostingData {
+  title: string;
+  description: string;
+  location: string;
+  employmentType: EmploymentType;
+  salaryMin?: number;
+  salaryMax?: number;
+  currency: string;
+  status: JobStatus;
+  qualificationQuestions: QualificationQuestion[];
+}
 
 export interface IJobPostingPayment {
   _id: mongoose.Types.ObjectId;
@@ -7,7 +24,7 @@ export interface IJobPostingPayment {
   paypalOrderId?: string;
   plan: JobPostingPlan;
   amount: number;
-  jobData: Record<string, unknown>;
+  jobData: JobPostingData;
   status: "creating" | "pending" | "captured" | "failed";
   jobId?: mongoose.Types.ObjectId;
   createdAt: Date;

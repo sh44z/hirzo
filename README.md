@@ -22,11 +22,13 @@ Required:
 
 Put real local values in `.env.local`; keep `.env.example` as a placeholder-only template. `.env.local` is ignored by Git and must not be committed. For Vercel, configure the same required values in the project's Environment Variables settings.
 
-Employer job posts require checkout through PayPal:
+Employer job posts use PayPal checkout unless a platform admin has applied a 100% discount:
 
 - **Basic (£79):** job posting, qualification questions, applicant shortlisting, and hiring
 - **Premium (£110):** Basic plus CV screening, a first-stage interview with feedback, and virtual interview requests (coming soon)
 - **Full Recruitment (£699):** job posting, candidate interviews, and contract preparation
+
+Platform admins can set an employer-specific discount from the backoffice. Discounts apply to all job posting plans; a 100% discount makes postings free and bypasses PayPal checkout.
 
 PayPal is configured for Live mode; add valid live credentials and confirm the merchant account is ready before accepting payments.
 

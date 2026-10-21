@@ -28,6 +28,7 @@ export async function GET() {
         email: employer.email,
         companyName: employer.companyName,
         contactName: employer.contactName,
+        jobPostingDiscountPercent: employer.jobPostingDiscountPercent ?? 0,
       },
     });
   } catch (error) {

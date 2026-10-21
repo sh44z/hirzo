@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
+  getJobPostingPrice,
   JOB_POSTING_PLANS,
   type JobPostingPlan,
 } from "@/lib/job-posting-plans";
@@ -12,6 +13,7 @@ type Employer = {
   email: string;
   companyName: string;
   contactName: string;
+  jobPostingDiscountPercent: number;
 };
 
 type Job = {
@@ -208,7 +210,15 @@ export default function WorkspacePage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not start checkout.");
-      window.location.assign(data.approvalUrl);
+      if (data.approvalUrl) {
+        window.location.assign(data.approvalUrl);
+        return;
+      }
+      if (!data.job) throw new Error("Checkout response was incomplete.");
+      setShowCreate(false);
+      setPaymentNotice(`Free job posting confirmed. “${data.job.title}” is now in your job posts.`);
+      await loadWorkspace();
+      setSaving(false);
     } catch (checkoutError) {
       setError(
         checkoutError instanceof Error
@@ -607,6 +617,10 @@ export default function WorkspacePage() {
                 <div className="plan-picker-grid">
                   {planIds.map((planId) => {
                     const plan = JOB_POSTING_PLANS[planId];
+                    const price = getJobPostingPrice(
+                      planId,
+                      employer.jobPostingDiscountPercent,
+                    );
                     return (
                       <button
                         key={planId}
@@ -616,7 +630,7 @@ export default function WorkspacePage() {
                         aria-pressed={selectedPlan === planId}
                       >
                         <strong>{plan.name}</strong>
-                        <b>£{plan.amount}</b>
+                        <b>{price === 0 ? "FREE" : <>£{price}{price !== plan.amount && <del>£{plan.amount}</del>}</>}</b>
                         <ul>
                           {plan.features.map((feature) => (
                             <li key={feature}>{feature}</li>
@@ -761,7 +775,9 @@ export default function WorkspacePage() {
                 >
                   {saving
                     ? "Opening PayPal…"
-                    : `Pay £${JOB_POSTING_PLANS[selectedPlan].amount} with PayPal`}
+                    : getJobPostingPrice(selectedPlan, employer.jobPostingDiscountPercent) === 0
+                      ? "Post for free"
+                      : `Pay £${getJobPostingPrice(selectedPlan, employer.jobPostingDiscountPercent)} with PayPal`}
                   <span>→</span>
                 </button>
               </div>

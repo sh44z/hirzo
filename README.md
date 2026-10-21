@@ -17,8 +17,18 @@ Required:
 - `MONGODB_URI` — MongoDB Atlas connection string (database name `hirzo`)
 - `JWT_SECRET` — long random secret for employer sessions
 - `ADMIN_INITIAL_PASSWORD` — unique initial password for `admin@hirzo.com` (at least 12 characters recommended). The initial master account is created when it first signs in; it is never provisioned with a hard-coded password.
+- `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` — server-only PayPal REST app credentials
+- `PAYPAL_MODE` — `live` for real payments; use `sandbox` only for testing
 
 Put real local values in `.env.local`; keep `.env.example` as a placeholder-only template. `.env.local` is ignored by Git and must not be committed. For Vercel, configure the same required values in the project's Environment Variables settings.
+
+Employer job posts require checkout through PayPal:
+
+- **Basic (£79):** job posting, qualification questions, applicant shortlisting, and hiring
+- **Premium (£110):** Basic plus CV screening, a first-stage interview with feedback, and virtual interview requests (coming soon)
+- **Full Recruitment (£699):** job posting, candidate interviews, and contract preparation
+
+PayPal is configured for Live mode; add valid live credentials and confirm the merchant account is ready before accepting payments.
 
 For a live deployment, add these variables to the hosting provider's production environment settings and redeploy. Confirm the MongoDB database user/password are valid, URL-encode special characters in the connection string, and allow the hosting provider to connect in MongoDB Atlas network access settings. `.env.example` contains placeholders and should not be used as a live connection string.
 
@@ -49,10 +59,12 @@ All employer routes use an httpOnly cookie session (`hirzo_employer_session`).
 | Method | Path | Notes |
 |--------|------|------|
 | `GET` | `/api/employers/jobs` | List employer's jobs |
-| `POST` | `/api/employers/jobs` | Create job + questions |
+| `POST` | `/api/employers/jobs` | Disabled; create a paid post via PayPal checkout |
 | `GET` | `/api/employers/jobs/:jobId` | Get one job |
 | `PATCH` | `/api/employers/jobs/:jobId` | Update job / questions / status |
 | `DELETE` | `/api/employers/jobs/:jobId` | Delete job |
+
+Paid job posting uses `POST /api/payments/paypal/create-order` with the job details and `plan` (`basic`, `premium`, or `full_recruitment`). The employer is redirected to PayPal; after approval, `/api/payments/paypal/capture` verifies the GBP amount before publishing the job.
 
 Create/update job body example:
 
@@ -121,7 +133,8 @@ Setting status to `interview` generates an invite token for later candidate emai
 
 ```
 Employer registers/logs in
-  → posts job + qualification/video questions
+  → chooses a paid package and completes PayPal checkout
+  → publishes the paid job + qualification questions
   → candidate applies (public)
   → employer reviews CV & answers
   → shortlist / interview / hire / reject

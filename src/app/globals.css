@@ -254,6 +254,27 @@ button { color: inherit; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
 .application-success p { max-width: 390px; margin: 0 0 20px; color: #7f887d; font-size: 12px; line-height: 1.8; }
 
+.auth-pricing { width: min(430px, 100%); margin-top: 23px; padding: 16px 18px; border: 1px solid #e7eae3; border-radius: 7px; background: rgba(255, 254, 250, .72); }
+.auth-pricing h2 { margin: 0 0 4px; color: #354439; font: 16px Georgia, serif; }
+.auth-pricing > p { margin: 0 0 11px; color: #8a9087; font-size: 9px; }
+.auth-pricing > div { display: flex; flex-direction: column; gap: 7px; color: #64705f; font-size: 10px; }
+.plan-picker { min-width: 0; margin: 0; padding: 12px; border: 1px solid #e2e6df; border-radius: 6px; }
+.plan-picker legend { padding: 0 5px; color: #535f54; font-size: 10px; font-weight: 600; }
+.plan-picker-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.plan-option { display: grid; grid-template-columns: 1fr auto; gap: 7px 10px; padding: 11px; border: 1px solid #e5e8e1; border-radius: 5px; background: #fffefa; text-align: left; cursor: pointer; }
+.plan-option.selected { border-color: #7f9b70; background: #f1f5ed; box-shadow: 0 0 0 2px rgba(127, 155, 112, .1); }
+.plan-option strong { color: #3c4c3e; font-size: 10px; }
+.plan-option b { color: #456144; font: 16px Georgia, serif; }
+.plan-option ul { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 5px 13px; margin: 0; padding-left: 15px; color: #7d8679; font-size: 9px; line-height: 1.6; }
+.applicant-modal { width: min(680px, 100%); }
+.applicant-list { display: flex; flex-direction: column; gap: 8px; }
+.applicant-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px; border: 1px solid #e8eae4; border-radius: 6px; background: #fffefa; }
+.applicant-row > div:first-child { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; gap: 5px; }
+.applicant-row strong { color: #354439; font-size: 11px; }
+.applicant-row a { color: #62755c; font-size: 9px; text-decoration: underline; text-underline-offset: 2px; }
+.applicant-actions { display: flex; flex: 0 0 auto; gap: 6px; }
+.workspace-error { margin: 0 0 16px; }
+
 /* Backoffice additions */
 .admin-indicator { display: inline-flex; align-items: center; gap: 7px; color: #787f75; font-size: 10px; }
 .admin-indicator i, .active-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #82aa72; }
@@ -307,4 +328,14 @@ button { color: inherit; }
 }
 @media (max-width: 420px) {
   .nav-employer-link { display: none; }.hero-tag { font-size: 10px; }.hero-copy { max-width: 290px; }.hero-search { padding: 5px; }.search-icon { margin: 0 6px; }.hero-search input { min-width: 0; font-size: 9px; }.hero-search button { min-width: 90px; }.hero-decoration { transform: translateX(50%) scale(.59); }.trust-stat strong { font-size: 12px; }.trust-divider { height: 27px; }.modal-backdrop { padding: 12px; }.job-modal { padding: 22px 18px; }.form-row { grid-template-columns: 1fr; }.qualification-editor-row { flex-direction: column; }.remove-question { align-self: flex-end; }.admin-inner .page-intro { align-items: flex-start; flex-direction: column; }.admin-inner .page-intro > .button { min-height: 34px; }
+}
+
+@media (max-width: 760px) {
+  .managed-job { flex-wrap: wrap; }
+  .managed-job-main { flex: 1 1 calc(100% - 55px); }
+  .managed-job > .small-button { margin-left: 42px; }
+  .applicant-row { align-items: flex-start; flex-direction: column; }
+  .applicant-row .status-pill { display: inline-flex; }
+  .applicant-actions { flex-wrap: wrap; }
+  .plan-option ul { display: block; }
 }

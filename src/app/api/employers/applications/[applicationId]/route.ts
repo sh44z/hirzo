@@ -107,6 +107,19 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     if (!application) return notFound("Application not found");
 
+    if (parsed.data.status === "interview") {
+      const job = await Job.findOne({
+        _id: application.jobId,
+        employerId: session.employerId,
+      }).select("postingPlan");
+      if (!job || job.postingPlan === "basic") {
+        return NextResponse.json(
+          { error: "Interview services are available with Premium and Full Recruitment." },
+          { status: 403 },
+        );
+      }
+    }
+
     application.status = parsed.data.status;
     if (parsed.data.notes !== undefined) {
       application.notes = parsed.data.notes;

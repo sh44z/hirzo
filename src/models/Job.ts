@@ -5,6 +5,7 @@ import type {
   QualificationQuestion,
   VideoQuestion,
 } from "@/types";
+import type { JobPostingPlan } from "@/lib/job-posting-plans";
 
 export interface IJob {
   _id: mongoose.Types.ObjectId;
@@ -17,6 +18,9 @@ export interface IJob {
   salaryMax?: number;
   currency: string;
   status: JobStatus;
+  postingPlan: JobPostingPlan;
+  postingPrice: number;
+  paymentId?: mongoose.Types.ObjectId;
   qualificationQuestions: QualificationQuestion[];
   videoQuestions: VideoQuestion[];
   createdAt: Date;
@@ -72,6 +76,18 @@ const JobSchema = new Schema<IJob>(
       enum: ["draft", "published", "closed"],
       default: "draft",
       index: true,
+    },
+    postingPlan: {
+      type: String,
+      enum: ["basic", "premium", "full_recruitment"],
+      required: true,
+    },
+    postingPrice: { type: Number, required: true },
+    paymentId: {
+      type: Schema.Types.ObjectId,
+      ref: "JobPostingPayment",
+      unique: true,
+      sparse: true,
     },
     qualificationQuestions: {
       type: [QualificationQuestionSchema],

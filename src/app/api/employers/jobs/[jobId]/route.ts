@@ -28,6 +28,8 @@ function serializeJob(job: InstanceType<typeof Job>) {
     salaryMax: job.salaryMax,
     currency: job.currency,
     status: job.status,
+    postingPlan: job.postingPlan,
+    postingPrice: job.postingPrice,
     qualificationQuestions: job.qualificationQuestions,
     videoQuestions: job.videoQuestions,
     createdAt: job.createdAt,

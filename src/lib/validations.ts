@@ -62,6 +62,14 @@ export const createJobSchema = z.object({
   videoQuestions: z.array(videoQuestionSchema).optional().default([]),
 });
 
+export const createPaidJobPostingSchema = createJobSchema.extend({
+  plan: z.enum(["basic", "premium", "full_recruitment"]),
+});
+
+export const paypalCaptureSchema = z.object({
+  orderId: z.string().min(1).max(128),
+});
+
 export const updateJobSchema = createJobSchema.partial();
 
 export const updateApplicationStatusSchema = z.object({

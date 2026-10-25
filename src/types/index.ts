@@ -40,3 +40,33 @@ export interface VideoAnswer {
   questionId: string;
   videoUrl: string;
 }
+
+export interface JobRequirements {
+  skills: string[];
+  yearsExperience: number;
+  qualifications: string[];
+  responsibilities: string[];
+  otherRequirements: string[];
+}
+
+export interface MatchWeights {
+  skills: number;
+  experience: number;
+  qualifications: number;
+  other: number;
+}
+
+export interface CandidateProfile {
+  skills: string[];
+  yearsExperience: number | null;
+  qualifications: string[];
+  responsibilities: string[];
+  otherRequirements: string[];
+}
+
+export interface MatchBreakdown {
+  skills: number;
+  experience: number;
+  qualifications: number;
+  other: number;
+}

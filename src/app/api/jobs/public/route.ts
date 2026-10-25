@@ -10,14 +10,20 @@ export async function GET() {
 
     const jobs = await Job.find({ status: "published" })
       .select(
-        "title description location employmentType salaryMin salaryMax currency qualificationQuestions videoQuestions createdAt employerId",
+        "title description location employmentType salaryMin salaryMax currency qualificationQuestions videoQuestions requirements featured postingPlan createdAt employerId",
       )
       .populate({ path: "employerId", select: "companyName", match: { active: { $ne: false } } })
-      .sort({ createdAt: -1 })
+      .sort({ featured: -1, createdAt: -1 })
       .lean();
+    const rankedJobs = [...jobs].sort(
+      (left, right) =>
+        Number(right.postingPlan === "premium") -
+          Number(left.postingPlan === "premium") ||
+        right.createdAt.getTime() - left.createdAt.getTime(),
+    );
 
     return NextResponse.json({
-      jobs: jobs.filter((job) => job.employerId).map((job) => ({
+      jobs: rankedJobs.filter((job) => job.employerId).map((job) => ({
         id: String(job._id),
         companyName:
           (job.employerId as unknown as { companyName?: string } | null)
@@ -31,6 +37,8 @@ export async function GET() {
         currency: job.currency,
         qualificationQuestions: job.qualificationQuestions,
         videoQuestions: job.videoQuestions,
+        requirements: job.requirements,
+        featured: job.postingPlan === "premium",
         createdAt: job.createdAt,
       })),
     });

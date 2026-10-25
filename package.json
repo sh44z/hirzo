@@ -11,11 +11,13 @@
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "jose": "^6.0.11",
+    "mammoth": "^1.13.0",
     "mongoose": "^8.16.1",
     "nanoid": "^5.1.5",
     "next": "16.1.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "word-extractor": "^1.0.4",
     "zod": "^3.25.67"
   },
   "devDependencies": {

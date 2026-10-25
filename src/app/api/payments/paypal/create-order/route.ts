@@ -56,6 +56,8 @@ export async function POST(request: NextRequest) {
         qualificationQuestions: normalizeQualificationQuestions(
           parsed.data.qualificationQuestions,
         ),
+        requirements: parsed.data.requirements,
+        matchWeights: parsed.data.matchWeights,
       },
     });
 

@@ -3,6 +3,7 @@ import type {
   ApplicationStatus,
   QualificationAnswer,
   VideoAnswer,
+  CandidateProfile,
 } from "@/types";
 
 export interface IApplication {
@@ -16,6 +17,7 @@ export interface IApplication {
   cvFileName?: string;
   cvMimeType?: string;
   cvFileData?: Buffer;
+  candidateProfile?: CandidateProfile;
   qualificationAnswers: QualificationAnswer[];
   videoAnswers: VideoAnswer[];
   status: ApplicationStatus;
@@ -38,6 +40,17 @@ const VideoAnswerSchema = new Schema(
   {
     questionId: { type: String, required: true },
     videoUrl: { type: String, required: true },
+  },
+  { _id: false },
+);
+
+const CandidateProfileSchema = new Schema(
+  {
+    skills: { type: [String], default: [] },
+    yearsExperience: { type: Number, min: 0, default: null },
+    qualifications: { type: [String], default: [] },
+    responsibilities: { type: [String], default: [] },
+    otherRequirements: { type: [String], default: [] },
   },
   { _id: false },
 );
@@ -68,6 +81,7 @@ const ApplicationSchema = new Schema<IApplication>(
     cvFileName: { type: String },
     cvMimeType: { type: String },
     cvFileData: { type: Buffer },
+    candidateProfile: { type: CandidateProfileSchema },
     qualificationAnswers: {
       type: [QualificationAnswerSchema],
       default: [],

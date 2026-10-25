@@ -6,6 +6,11 @@ import { createApplicationSchema } from "@/lib/validations";
 import { Job } from "@/models/Job";
 import { Application } from "@/models/Application";
 import { Employer } from "@/models/Employer";
+import { MatchResult } from "@/models/MatchResult";
+import { calculateMatchScore, extractCandidateProfile } from "@/lib/job-matching";
+import type { CandidateProfile } from "@/types";
+
+export const runtime = "nodejs";
 
 /**
  * Public apply endpoint (no candidate account required).
@@ -15,7 +20,12 @@ export async function POST(request: NextRequest) {
   try {
     let body: unknown;
     let uploadedCv:
-      | { fileName: string; mimeType: string; data: Buffer }
+      | {
+          fileName: string;
+          mimeType: string;
+          data: Buffer;
+          profile: CandidateProfile;
+        }
       | undefined;
 
     if (request.headers.get("content-type")?.includes("multipart/form-data")) {
@@ -53,6 +63,13 @@ export async function POST(request: NextRequest) {
         if (!isValidWordFile) {
           return badRequest("The uploaded file is not a valid Word document");
         }
+        let profile: CandidateProfile;
+        try {
+          profile = await extractCandidateProfile(data);
+        } catch (error) {
+          console.warn("CV text extraction failed:", error);
+          return badRequest("Could not read the uploaded CV. Please try another .docx file.");
+        }
         const fileName = cvFile.name
           .split(/[\\/]/)
           .pop()!
@@ -60,10 +77,11 @@ export async function POST(request: NextRequest) {
           .slice(0, 255);
         uploadedCv = {
           fileName,
-          mimeType: isDocx
-            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            : "application/msword",
+            mimeType: isDocx
+              ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              : "application/msword",
           data,
+          profile,
         };
       }
 
@@ -124,6 +142,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const candidateProfile = uploadedCv?.profile || {
+      skills: [],
+      yearsExperience: null,
+      qualifications: [],
+      responsibilities: [],
+      otherRequirements: [],
+    };
+    const match = job.postingPlan === "premium"
+      ? calculateMatchScore(
+          job.requirements,
+          job.matchWeights,
+          candidateProfile,
+        )
+      : null;
+
     try {
       const application = await Application.create({
         jobId: job._id,
@@ -135,10 +168,28 @@ export async function POST(request: NextRequest) {
         cvFileName: uploadedCv?.fileName || parsed.data.cvFileName,
         cvMimeType: uploadedCv?.mimeType,
         cvFileData: uploadedCv?.data,
+        candidateProfile: uploadedCv?.profile,
         qualificationAnswers: parsed.data.qualificationAnswers,
         videoAnswers: parsed.data.videoAnswers,
         status: "applied",
       });
+
+      if (match) {
+        try {
+          await MatchResult.findOneAndUpdate(
+            { applicationId: application._id },
+            {
+              jobId: job._id,
+              employerId: job.employerId,
+              ...match,
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true },
+          );
+        } catch (error) {
+          await Application.deleteOne({ _id: application._id });
+          throw error;
+        }
+      }
 
       return NextResponse.json(
         {

@@ -25,7 +25,7 @@ Put real local values in `.env.local`; keep `.env.example` as a placeholder-only
 Employer job posts use PayPal checkout unless a platform admin has applied a 100% discount:
 
 - **Basic (£79):** job posting, qualification questions, applicant shortlisting, and hiring
-- **Premium (£110):** Basic plus CV screening, a first-stage interview with feedback, and virtual interview requests (coming soon)
+- **Premium (£110):** Basic plus CV screening, a featured job listing, and applicant match scoring with configurable role-specific weights
 - **Full Recruitment (£699):** job posting, candidate interviews, and contract preparation
 
 Platform admins can set an employer-specific discount from the backoffice. Discounts apply to all job posting plans; a 100% discount makes postings free and bypasses PayPal checkout.
@@ -80,6 +80,19 @@ Create/update job body example:
   "salaryMax": 70000,
   "currency": "GBP",
   "status": "published",
+  "requirements": {
+    "skills": ["Salesforce", "Consultative selling"],
+    "yearsExperience": 3,
+    "qualifications": ["Relevant professional certification"],
+    "responsibilities": ["Manage the full sales cycle"],
+    "otherRequirements": ["Comfortable presenting to clients"]
+  },
+  "matchWeights": {
+    "skills": 40,
+    "experience": 30,
+    "qualifications": 15,
+    "other": 15
+  },
   "qualificationQuestions": [
     {
       "question": "How many years of React experience?",
@@ -113,6 +126,8 @@ Create/update job body example:
 | Method | Path | Notes |
 |--------|------|------|
 | `GET` | `/api/employers/jobs/:jobId/applications?status=` | List / filter applicants |
+| `GET` | `/api/employers/jobs/:jobId/match-results` | Premium-only applicant matches, sorted by score |
+| `POST` | `/api/employers/jobs/:jobId/match-results` | Recalculate and save premium applicant scores |
 | `GET` | `/api/employers/applications/:applicationId` | Review CV + answers |
 | `PATCH` | `/api/employers/applications/:applicationId` | Update pipeline status |
 
@@ -136,8 +151,9 @@ Setting status to `interview` generates an invite token for later candidate emai
 ```
 Employer registers/logs in
   → chooses a paid package and completes PayPal checkout
-  → publishes the paid job + qualification questions
-  → candidate applies (public)
+  → publishes the paid job + structured requirements
+  → premium jobs are featured and score applicants against role requirements
+  → candidate applies with an optional .doc or .docx CV (text extracted server-side)
   → employer reviews CV & answers
   → shortlist / interview / hire / reject
 ```
@@ -146,3 +162,10 @@ Employer registers/logs in
 
 - Candidate application and video upload UI
 - Candidate email invite login for interviews
+
+Match scores are decision-support signals, not hiring decisions. Skills, experience,
+qualifications, and other role requirements can be weighted per job; weights must total
+100%. Protected characteristics are rejected as job matching requirements. Uploaded
+CV files are retained privately and can only be downloaded through an authenticated
+employer route; CV text and parsed profile data are never included in applicant API
+responses.

@@ -15,6 +15,7 @@ export async function createJobForPayment(
         ...payment.jobData,
         postingPlan: payment.plan,
         postingPrice: payment.amount,
+        featured: payment.plan === "premium",
         paymentId: payment._id,
       },
     },

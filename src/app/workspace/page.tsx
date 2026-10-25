@@ -24,6 +24,7 @@ type Job = {
   status: string;
   postingPlan?: JobPostingPlan;
   postingPrice?: number;
+  featured?: boolean;
   createdAt: string;
 };
 
@@ -200,6 +201,31 @@ export default function WorkspacePage() {
         .map((question) => question.trim())
         .filter(Boolean)
         .map((question) => ({ question, type: "text", required: true })),
+      requirements: {
+        skills: String(form.get("skills") || "")
+          .split(/\n|,/)
+          .map((item) => item.trim())
+          .filter(Boolean),
+        yearsExperience: Number(form.get("yearsExperience") || 0),
+        qualifications: String(form.get("qualifications") || "")
+          .split(/\n|,/)
+          .map((item) => item.trim())
+          .filter(Boolean),
+        responsibilities: String(form.get("responsibilities") || "")
+          .split(/\n|,/)
+          .map((item) => item.trim())
+          .filter(Boolean),
+        otherRequirements: String(form.get("otherRequirements") || "")
+          .split(/\n|,/)
+          .map((item) => item.trim())
+          .filter(Boolean),
+      },
+      matchWeights: {
+        skills: Number(form.get("weightSkills") || 40),
+        experience: Number(form.get("weightExperience") || 30),
+        qualifications: Number(form.get("weightQualifications") || 15),
+        other: Number(form.get("weightOther") || 15),
+      },
       plan: selectedPlan,
     };
     try {
@@ -553,6 +579,7 @@ export default function WorkspacePage() {
                             </span>
                           </>
                         )}
+                        {job.featured && <span className="featured-job-label">Featured</span>}
                       </div>
                     </div>
                     <span className={`status-pill ${job.status}`}>
@@ -564,6 +591,14 @@ export default function WorkspacePage() {
                     >
                       Applicants
                     </button>
+                    {job.postingPlan === "premium" && (
+                      <Link
+                        className="button button-light small-button"
+                        href={`/employer/jobs/${job.id}/applicants`}
+                      >
+                        Match scores
+                      </Link>
+                    )}
                     <button
                       className="button button-light small-button"
                       onClick={() => void updateJobStatus(job)}
@@ -692,6 +727,47 @@ export default function WorkspacePage() {
                   placeholder="Tell candidates what they'll work on, the impact they'll make, and what you're looking for…"
                 />
               </label>
+              <fieldset className="qualification-editor">
+                <legend>Job requirements</legend>
+                <p className="field-hint">
+                  Add clear, role-related requirements to support candidate matching.
+                  Do not include age, sex, ethnicity, disability, or other protected traits.
+                </p>
+                <label>
+                  Required skills <span className="optional-label">One per line or comma-separated</span>
+                  <textarea name="skills" rows={3} placeholder={"e.g. Salesforce\nConsultative selling"} />
+                </label>
+                <label>
+                  Minimum years of experience
+                  <input type="number" name="yearsExperience" min="0" max="60" defaultValue="0" />
+                </label>
+                <label>
+                  Qualifications <span className="optional-label">One per line or comma-separated</span>
+                  <textarea name="qualifications" rows={3} placeholder="e.g. Relevant professional certification" />
+                </label>
+                <label>
+                  Responsibilities <span className="optional-label">One per line or comma-separated</span>
+                  <textarea name="responsibilities" rows={3} placeholder={"e.g. Manage the full sales cycle\nBuild a qualified pipeline"} />
+                </label>
+                <label>
+                  Other job-related requirements <span className="optional-label">One per line or comma-separated</span>
+                  <textarea name="otherRequirements" rows={3} placeholder="e.g. Comfortable presenting to clients" />
+                </label>
+              </fieldset>
+              {selectedPlan === "premium" && (
+                <fieldset className="qualification-editor">
+                  <legend>Match score weighting</legend>
+                  <p className="field-hint">
+                    Set the importance for this role. Weights must total 100%.
+                  </p>
+                  <div className="form-row">
+                    <label>Skills (%)<input type="number" name="weightSkills" min="0" max="100" defaultValue="40" required /></label>
+                    <label>Experience (%)<input type="number" name="weightExperience" min="0" max="100" defaultValue="30" required /></label>
+                    <label>Qualifications (%)<input type="number" name="weightQualifications" min="0" max="100" defaultValue="15" required /></label>
+                    <label>Responsibilities &amp; other (%)<input type="number" name="weightOther" min="0" max="100" defaultValue="15" required /></label>
+                  </div>
+                </fieldset>
+              )}
               <fieldset className="qualification-editor">
                 <legend>
                   Qualification questions <span className="optional-label">Optional</span>

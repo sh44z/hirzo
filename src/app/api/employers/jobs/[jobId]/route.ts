@@ -13,6 +13,7 @@ import {
   normalizeVideoQuestions,
 } from "@/lib/questions";
 import { Job } from "@/models/Job";
+import { MatchResult } from "@/models/MatchResult";
 
 type Params = { params: Promise<{ jobId: string }> };
 
@@ -30,6 +31,9 @@ function serializeJob(job: InstanceType<typeof Job>) {
     status: job.status,
     postingPlan: job.postingPlan,
     postingPrice: job.postingPrice,
+    featured: job.postingPlan === "premium",
+    requirements: job.requirements,
+    matchWeights: job.matchWeights,
     qualificationQuestions: job.qualificationQuestions,
     videoQuestions: job.videoQuestions,
     createdAt: job.createdAt,
@@ -117,6 +121,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (updates.videoQuestions !== undefined) {
       job.videoQuestions = normalizeVideoQuestions(updates.videoQuestions);
     }
+    if (updates.requirements !== undefined) {
+      job.requirements = updates.requirements;
+    }
+    if (updates.matchWeights !== undefined) {
+      job.matchWeights = updates.matchWeights;
+    }
 
     await job.save();
 
@@ -146,6 +156,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
 
     if (!job) return notFound("Job not found");
 
+    await MatchResult.deleteMany({ jobId: job._id });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Delete job error:", error);

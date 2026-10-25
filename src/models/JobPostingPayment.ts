@@ -4,6 +4,8 @@ import type {
   EmploymentType,
   JobStatus,
   QualificationQuestion,
+  JobRequirements,
+  MatchWeights,
 } from "@/types";
 
 export interface JobPostingData {
@@ -16,6 +18,8 @@ export interface JobPostingData {
   currency: string;
   status: JobStatus;
   qualificationQuestions: QualificationQuestion[];
+  requirements: JobRequirements;
+  matchWeights: MatchWeights;
 }
 
 export interface IJobPostingPayment {

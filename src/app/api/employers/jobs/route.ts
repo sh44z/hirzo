@@ -17,6 +17,7 @@ export async function GET() {
     return NextResponse.json({
       jobs: jobs.map((job) => ({
         ...job,
+        featured: job.postingPlan === "premium",
         id: String(job._id),
         employerId: job.employerId.toString(),
         _id: undefined,

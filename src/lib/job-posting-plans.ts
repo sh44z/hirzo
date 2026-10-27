@@ -15,7 +15,7 @@ export const JOB_POSTING_PLANS = {
       "Everything in Basic",
       "CV screening by Hirzo",
       "Featured job listing",
-      "Applicant job-match scores and ranking",
+      "Simple CV requirement-match scores",
       "First-stage interview and feedback",
       "Virtual interview requests (coming soon)",
     ],

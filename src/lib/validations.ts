@@ -69,23 +69,6 @@ const jobRequirementsSchema = z
       });
     }
   });
-const matchWeightsSchema = z
-  .object({
-    skills: z.number().int().min(0).max(100).default(40),
-    experience: z.number().int().min(0).max(100).default(30),
-    qualifications: z.number().int().min(0).max(100).default(15),
-    other: z.number().int().min(0).max(100).default(15),
-  })
-  .refine(
-    (weights) =>
-      weights.skills +
-        weights.experience +
-        weights.qualifications +
-        weights.other ===
-      100,
-    "Match weights must add up to 100",
-  );
-
 export const createJobSchema = z.object({
   title: z.string().min(3).max(160),
   description: z.string().min(20),
@@ -112,12 +95,6 @@ export const createJobSchema = z.object({
     qualifications: [],
     responsibilities: [],
     otherRequirements: [],
-  }),
-  matchWeights: matchWeightsSchema.default({
-    skills: 40,
-    experience: 30,
-    qualifications: 15,
-    other: 15,
   }),
 });
 

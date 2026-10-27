@@ -13,25 +13,13 @@ type MatchResult = {
   status: string;
   appliedAt: string;
   score: number;
-  breakdown: {
-    skills: number;
-    experience: number;
-    qualifications: number;
-    other: number;
-  };
+  hasScannedCv: boolean;
 };
 
 type MatchResultsResponse = {
   job: { id: string; title: string };
   matchResults: MatchResult[];
 };
-
-const scoreCategories: Array<[keyof MatchResult["breakdown"], string]> = [
-  ["skills", "Skills"],
-  ["experience", "Experience"],
-  ["qualifications", "Qualifications"],
-  ["other", "Responsibilities & other"],
-] as const;
 
 export default function ApplicantsPage() {
   const { jobId } = useParams<{ jobId: string }>();
@@ -84,14 +72,14 @@ export default function ApplicantsPage() {
       );
       const responseData = await response.json();
       if (!response.ok) {
-        throw new Error(responseData.error || "Could not recalculate scores.");
+        throw new Error(responseData.error || "Could not refresh matches.");
       }
       await loadResults();
     } catch (recalculateError) {
       setError(
         recalculateError instanceof Error
           ? recalculateError.message
-          : "Could not recalculate scores.",
+          : "Could not refresh matches.",
       );
     } finally {
       setRecalculating(false);
@@ -106,11 +94,12 @@ export default function ApplicantsPage() {
         </Link>
         <header className="match-results-heading">
           <div>
-            <div className="eyebrow">PREMIUM APPLICANT RANKING</div>
+            <div className="eyebrow">APPLICANT MATCHES</div>
             <h1>{data?.job.title || "Applicant matches"}</h1>
             <p>
-              Applicants are ranked by job requirements. Use scores as a
-              decision-support tool, not as a substitute for human review.
+              CVs are checked for matching keywords and phrases from the job
+              requirements and qualifications. Use this as a quick guide, not
+              a substitute for reviewing each application.
             </p>
           </div>
           <button
@@ -118,7 +107,7 @@ export default function ApplicantsPage() {
             disabled={recalculating || loading}
             onClick={() => void recalculate()}
           >
-            {recalculating ? "Recalculating…" : "Recalculate scores"}
+            {recalculating ? "Refreshing…" : "Refresh matches"}
           </button>
         </header>
 
@@ -126,11 +115,10 @@ export default function ApplicantsPage() {
         {loading ? (
           <p className="field-hint">Loading applicants…</p>
         ) : data?.matchResults.length ? (
-          <section className="match-results-list" aria-label="Ranked applicants">
-            {data.matchResults.map((applicant, index) => (
+          <section className="match-results-list" aria-label="Applicant matches">
+            {data.matchResults.map((applicant) => (
               <article className="match-result-card" key={applicant.id}>
                 <div className="match-result-main">
-                  <span className="match-rank">#{index + 1}</span>
                   <div>
                     <h2>{applicant.candidateName}</h2>
                     <a href={`mailto:${applicant.candidateEmail}`}>
@@ -147,29 +135,14 @@ export default function ApplicantsPage() {
                   </div>
                 </div>
                 <div className="match-score-block">
-                  <strong>{applicant.score}%</strong>
-                  <span>match</span>
-                  <div
-                    className="match-score-track"
-                    role="meter"
-                    aria-label={`${applicant.score}% job match`}
-                    aria-valuenow={applicant.score}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                  >
-                    <i style={{ width: `${applicant.score}%` }} />
-                  </div>
+                  <strong>
+                    {!applicant.hasScannedCv
+                      ? "CV not scanned"
+                      : applicant.score < 60
+                        ? "Not a good match"
+                        : `${applicant.score}% Match`}
+                  </strong>
                 </div>
-                <dl className="match-breakdown">
-                  {scoreCategories.map(([key, label]) => (
-                    <div key={key}>
-                      <dt>{label}</dt>
-                      <dd>
-                        {applicant.breakdown[key]}%
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
               </article>
             ))}
           </section>

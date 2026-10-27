@@ -1,5 +1,4 @@
 import mongoose, { Schema, models, model } from "mongoose";
-import type { MatchBreakdown } from "@/types";
 
 export interface IMatchResult {
   _id: mongoose.Types.ObjectId;
@@ -7,7 +6,6 @@ export interface IMatchResult {
   applicationId: mongoose.Types.ObjectId;
   employerId: mongoose.Types.ObjectId;
   score: number;
-  breakdown: MatchBreakdown;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -33,12 +31,6 @@ const MatchResultSchema = new Schema<IMatchResult>(
       index: true,
     },
     score: { type: Number, min: 0, max: 100, required: true, index: true },
-    breakdown: {
-      skills: { type: Number, min: 0, max: 100, required: true },
-      experience: { type: Number, min: 0, max: 100, required: true },
-      qualifications: { type: Number, min: 0, max: 100, required: true },
-      other: { type: Number, min: 0, max: 100, required: true },
-    },
   },
   { timestamps: true },
 );

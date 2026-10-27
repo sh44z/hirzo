@@ -2,12 +2,7 @@ import "server-only";
 import mammoth from "mammoth";
 import WordExtractor from "word-extractor";
 import { containsProtectedCharacteristic } from "@/lib/protected-characteristics";
-import type {
-  CandidateProfile,
-  JobRequirements,
-  MatchBreakdown,
-  MatchWeights,
-} from "@/types";
+import type { CandidateProfile, JobRequirements } from "@/types";
 
 const sectionHeading =
   /^(?:skills|technical skills|core competencies|education|qualifications|certifications|licenses|professional experience|work experience|employment history|experience|responsibilities|projects|summary|profile|languages|other requirements)\s*:?\s*$/i;
@@ -74,59 +69,40 @@ function normalize(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9+#.]+/g, " ").trim();
 }
 
-function requirementScore(requirements: string[], evidence: string[]) {
-  if (requirements.length === 0) return 100;
-  const evidenceText = normalize(evidence.join(" "));
-  const scores = requirements.map((requirement) => {
-    if (containsProtectedCharacteristic(requirement)) return 0;
-    const normalized = normalize(requirement);
-    if (!normalized) return 0;
-    if (evidenceText.includes(normalized)) return 100;
-    const words = normalized.split(/\s+/).filter((word) => word.length > 2);
-    if (!words.length) return 0;
-    const matches = words.filter((word) => evidenceText.includes(word)).length;
-    return Math.round((matches / words.length) * 100);
-  });
-  return Math.round(scores.reduce((total, score) => total + score, 0) / scores.length);
-}
-
 export function calculateMatchScore(
   requirements: JobRequirements,
-  weights: MatchWeights,
   profile: CandidateProfile,
-): { score: number; breakdown: MatchBreakdown } {
-  const breakdown: MatchBreakdown = {
-    skills: requirementScore(requirements.skills, [
+): number {
+  const criteria = [
+    ...requirements.skills,
+    ...requirements.qualifications,
+    ...requirements.responsibilities,
+    ...requirements.otherRequirements,
+    ...(requirements.yearsExperience > 0
+      ? [`${requirements.yearsExperience} years experience`]
+      : []),
+  ].filter((requirement) => !containsProtectedCharacteristic(requirement));
+  if (criteria.length === 0) return 0;
+
+  const evidence = normalize(
+    [
       ...profile.skills,
+      ...profile.qualifications,
       ...profile.responsibilities,
       ...profile.otherRequirements,
-    ]),
-    experience:
-      requirements.yearsExperience === 0
-        ? 100
-        : profile.yearsExperience === null
-          ? 0
-          : Math.min(
-              100,
-              Math.round(
-                (profile.yearsExperience / requirements.yearsExperience) * 100,
-              ),
-            ),
-    qualifications: requirementScore(
-      requirements.qualifications,
-      profile.qualifications,
-    ),
-    other: requirementScore(
-      [...requirements.responsibilities, ...requirements.otherRequirements],
-      [...profile.responsibilities, ...profile.otherRequirements],
-    ),
-  };
-  const score = Math.round(
-    (breakdown.skills * weights.skills +
-      breakdown.experience * weights.experience +
-      breakdown.qualifications * weights.qualifications +
-      breakdown.other * weights.other) /
-      100,
+    ].join(" "),
   );
-  return { score, breakdown };
+  const evidenceWords = new Set(evidence.split(/\s+/).filter(Boolean));
+  const scores = criteria.map((criterion) => {
+    const normalized = normalize(criterion);
+    if (!normalized) return 0;
+    if (` ${evidence} `.includes(` ${normalized} `)) return 100;
+
+    const words = [...new Set(normalized.split(/\s+/).filter(Boolean))];
+    if (words.length === 0) return 0;
+    const matches = words.filter((word) => evidenceWords.has(word)).length;
+    return Math.round((matches / words.length) * 100);
+  });
+
+  return Math.round(scores.reduce((total, score) => total + score, 0) / scores.length);
 }

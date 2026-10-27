@@ -5,7 +5,6 @@ import type {
   QualificationQuestion,
   VideoQuestion,
   JobRequirements,
-  MatchWeights,
 } from "@/types";
 import type { JobPostingPlan } from "@/lib/job-posting-plans";
 
@@ -24,7 +23,6 @@ export interface IJob {
   postingPrice: number;
   featured: boolean;
   requirements: JobRequirements;
-  matchWeights: MatchWeights;
   paymentId?: mongoose.Types.ObjectId;
   qualificationQuestions: QualificationQuestion[];
   videoQuestions: VideoQuestion[];
@@ -68,16 +66,6 @@ const JobRequirementsSchema = new Schema(
   { _id: false },
 );
 
-const MatchWeightsSchema = new Schema(
-  {
-    skills: { type: Number, min: 0, max: 100, default: 40 },
-    experience: { type: Number, min: 0, max: 100, default: 30 },
-    qualifications: { type: Number, min: 0, max: 100, default: 15 },
-    other: { type: Number, min: 0, max: 100, default: 15 },
-  },
-  { _id: false },
-);
-
 const JobSchema = new Schema<IJob>(
   {
     employerId: {
@@ -109,9 +97,8 @@ const JobSchema = new Schema<IJob>(
       required: true,
     },
     postingPrice: { type: Number, required: true },
-    featured: { type: Boolean, default: false, index: true },
+    featured: { type: Boolean, default: false, index: true     },
     requirements: { type: JobRequirementsSchema, default: () => ({}) },
-    matchWeights: { type: MatchWeightsSchema, default: () => ({}) },
     paymentId: {
       type: Schema.Types.ObjectId,
       ref: "JobPostingPayment",

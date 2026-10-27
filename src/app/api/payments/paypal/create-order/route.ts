@@ -57,7 +57,6 @@ export async function POST(request: NextRequest) {
           parsed.data.qualificationQuestions,
         ),
         requirements: parsed.data.requirements,
-        matchWeights: parsed.data.matchWeights,
       },
     });
 

@@ -48,13 +48,14 @@ export async function GET(_request: NextRequest, { params }: Params) {
       _id: { $in: results.map((result) => result.applicationId) },
       employerId: session.employerId,
     })
-      .select("candidateName candidateEmail candidatePhone cvFileName status createdAt")
+      .select("candidateName candidateEmail candidatePhone cvFileName candidateProfile status createdAt")
       .lean<Array<{
       _id: mongoose.Types.ObjectId;
       candidateName: string;
       candidateEmail: string;
       candidatePhone?: string;
       cvFileName?: string;
+      candidateProfile?: CandidateProfile;
       status: string;
       createdAt: Date;
     }>>();
@@ -82,7 +83,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
             status: application.status,
             appliedAt: application.createdAt,
             score: result.score,
-            breakdown: result.breakdown,
+            hasScannedCv: Boolean(application.candidateProfile),
           },
         ];
       }),
@@ -120,11 +121,7 @@ export async function POST(_request: NextRequest, { params }: Params) {
         responsibilities: [],
         otherRequirements: [],
       };
-      const match = calculateMatchScore(
-        job.requirements,
-        job.matchWeights,
-        profile,
-      );
+      const score = calculateMatchScore(job.requirements, profile);
       return {
         updateOne: {
           filter: { applicationId: application._id },
@@ -132,7 +129,7 @@ export async function POST(_request: NextRequest, { params }: Params) {
             $set: {
               jobId: job._id,
               employerId: job.employerId,
-              ...match,
+              score,
             },
           },
           upsert: true,

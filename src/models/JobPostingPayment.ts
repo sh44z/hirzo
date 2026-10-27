@@ -5,7 +5,6 @@ import type {
   JobStatus,
   QualificationQuestion,
   JobRequirements,
-  MatchWeights,
 } from "@/types";
 
 export interface JobPostingData {
@@ -19,7 +18,6 @@ export interface JobPostingData {
   status: JobStatus;
   qualificationQuestions: QualificationQuestion[];
   requirements: JobRequirements;
-  matchWeights: MatchWeights;
 }
 
 export interface IJobPostingPayment {

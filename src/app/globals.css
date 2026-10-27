@@ -284,21 +284,13 @@ button { color: inherit; }
 .match-results-heading h1 { margin: 8px 0; color: #2d3b31; font: 32px Georgia, serif; }
 .match-results-heading p { max-width: 560px; margin: 0; color: #7e887d; font-size: 11px; line-height: 1.7; }
 .match-results-list { display: flex; flex-direction: column; gap: 11px; }
-.match-result-card { display: grid; grid-template-columns: minmax(0, 1fr) 125px; gap: 15px 22px; padding: 17px; border: 1px solid #e7eae3; border-radius: 8px; background: #fffefa; }
+.match-result-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 15px 22px; padding: 17px; border: 1px solid #e7eae3; border-radius: 8px; background: #fffefa; }
 .match-result-main { display: flex; align-items: flex-start; gap: 12px; }
-.match-rank { display: grid; width: 29px; height: 29px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #eff3e9; color: #566d4b; font-size: 10px; font-weight: 700; }
 .match-result-main h2 { margin: 0 0 5px; color: #354439; font: 17px Georgia, serif; }
 .match-result-main a { color: #62755c; font-size: 10px; text-decoration: underline; text-underline-offset: 2px; }
 .match-result-meta { display: flex; align-items: center; gap: 12px; margin-top: 9px; }
 .match-score-block { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
-.match-score-block > strong { color: #405d3e; font: 25px Georgia, serif; }
-.match-score-block > span { color: #858d82; font-size: 9px; }
-.match-score-track { width: 100%; height: 5px; margin-top: 5px; overflow: hidden; border-radius: 99px; background: #e9ece5; }
-.match-score-track i { display: block; height: 100%; border-radius: inherit; background: #819c72; }
-.match-breakdown { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0; padding-top: 11px; border-top: 1px solid #eff0eb; }
-.match-breakdown > div { display: flex; justify-content: space-between; gap: 7px; }
-.match-breakdown dt { color: #828a7f; font-size: 9px; }
-.match-breakdown dd { margin: 0; color: #465a43; font-size: 10px; font-weight: 700; }
+.match-score-block > strong { color: #405d3e; font: 18px Georgia, serif; text-align: right; }
 .match-results-empty { margin-top: 20px; }
 
 /* Backoffice additions */
@@ -366,6 +358,6 @@ button { color: inherit; }
   .applicant-actions { flex-wrap: wrap; }
   .plan-option ul { display: block; }
   .match-results-heading { align-items: flex-start; flex-direction: column; }
-  .match-result-card { grid-template-columns: minmax(0, 1fr) 90px; gap: 12px; padding: 13px; }
-  .match-breakdown { grid-template-columns: 1fr 1fr; }
+  .match-result-card { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 13px; }
+  .match-score-block > strong { font-size: 14px; }
 }

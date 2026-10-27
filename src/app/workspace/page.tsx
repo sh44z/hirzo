@@ -220,12 +220,6 @@ export default function WorkspacePage() {
           .map((item) => item.trim())
           .filter(Boolean),
       },
-      matchWeights: {
-        skills: Number(form.get("weightSkills") || 40),
-        experience: Number(form.get("weightExperience") || 30),
-        qualifications: Number(form.get("weightQualifications") || 15),
-        other: Number(form.get("weightOther") || 15),
-      },
       plan: selectedPlan,
     };
     try {
@@ -596,7 +590,7 @@ export default function WorkspacePage() {
                         className="button button-light small-button"
                         href={`/employer/jobs/${job.id}/applicants`}
                       >
-                        Match scores
+                        Applicant matches
                       </Link>
                     )}
                     <button
@@ -730,7 +724,7 @@ export default function WorkspacePage() {
               <fieldset className="qualification-editor">
                 <legend>Job requirements</legend>
                 <p className="field-hint">
-                  Add clear, role-related requirements to support candidate matching.
+                  Add role-related skills, qualifications, and responsibilities.
                   Do not include age, sex, ethnicity, disability, or other protected traits.
                 </p>
                 <label>
@@ -754,20 +748,6 @@ export default function WorkspacePage() {
                   <textarea name="otherRequirements" rows={3} placeholder="e.g. Comfortable presenting to clients" />
                 </label>
               </fieldset>
-              {selectedPlan === "premium" && (
-                <fieldset className="qualification-editor">
-                  <legend>Match score weighting</legend>
-                  <p className="field-hint">
-                    Set the importance for this role. Weights must total 100%.
-                  </p>
-                  <div className="form-row">
-                    <label>Skills (%)<input type="number" name="weightSkills" min="0" max="100" defaultValue="40" required /></label>
-                    <label>Experience (%)<input type="number" name="weightExperience" min="0" max="100" defaultValue="30" required /></label>
-                    <label>Qualifications (%)<input type="number" name="weightQualifications" min="0" max="100" defaultValue="15" required /></label>
-                    <label>Responsibilities &amp; other (%)<input type="number" name="weightOther" min="0" max="100" defaultValue="15" required /></label>
-                  </div>
-                </fieldset>
-              )}
               <fieldset className="qualification-editor">
                 <legend>
                   Qualification questions <span className="optional-label">Optional</span>

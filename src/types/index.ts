@@ -49,24 +49,10 @@ export interface JobRequirements {
   otherRequirements: string[];
 }
 
-export interface MatchWeights {
-  skills: number;
-  experience: number;
-  qualifications: number;
-  other: number;
-}
-
 export interface CandidateProfile {
   skills: string[];
   yearsExperience: number | null;
   qualifications: string[];
   responsibilities: string[];
   otherRequirements: string[];
-}
-
-export interface MatchBreakdown {
-  skills: number;
-  experience: number;
-  qualifications: number;
-  other: number;
 }

@@ -33,7 +33,6 @@ function serializeJob(job: InstanceType<typeof Job>) {
     postingPrice: job.postingPrice,
     featured: job.postingPlan === "premium",
     requirements: job.requirements,
-    matchWeights: job.matchWeights,
     qualificationQuestions: job.qualificationQuestions,
     videoQuestions: job.videoQuestions,
     createdAt: job.createdAt,
@@ -124,10 +123,6 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (updates.requirements !== undefined) {
       job.requirements = updates.requirements;
     }
-    if (updates.matchWeights !== undefined) {
-      job.matchWeights = updates.matchWeights;
-    }
-
     await job.save();
 
     return NextResponse.json({ job: serializeJob(job) });

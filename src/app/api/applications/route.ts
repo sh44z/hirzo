@@ -150,11 +150,7 @@ export async function POST(request: NextRequest) {
       otherRequirements: [],
     };
     const match = job.postingPlan === "premium"
-      ? calculateMatchScore(
-          job.requirements,
-          job.matchWeights,
-          candidateProfile,
-        )
+      ? calculateMatchScore(job.requirements, candidateProfile)
       : null;
 
     try {
@@ -174,14 +170,14 @@ export async function POST(request: NextRequest) {
         status: "applied",
       });
 
-      if (match) {
+      if (match !== null) {
         try {
           await MatchResult.findOneAndUpdate(
             { applicationId: application._id },
             {
               jobId: job._id,
               employerId: job.employerId,
-              ...match,
+              score: match,
             },
             { upsert: true, new: true, setDefaultsOnInsert: true },
           );

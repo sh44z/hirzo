@@ -385,7 +385,7 @@ export default function WorkspacePage() {
     return (
       <main className="auth-shell">
         <Link className="brand" href="/">
-          <Image src="/hirzologo.jpg" alt="Hirzo" width={90} height={52} className="brand-logo" />
+          <Image src="/hirzologo.jpg" alt="Hirzo" width={90} height={52} unoptimized className="brand-logo" />
         </Link>
         <section className="auth-card">
           <div className="eyebrow">EMPLOYER WORKSPACE</div>
@@ -480,7 +480,7 @@ export default function WorkspacePage() {
     <main className="workspace-shell">
       <aside className="workspace-sidebar">
         <Link className="brand" href="/">
-          <Image src="/hirzologo.jpg" alt="Hirzo" width={90} height={52} className="brand-logo" />
+          <Image src="/hirzologo.jpg" alt="Hirzo" width={90} height={52} unoptimized className="brand-logo" />
         </Link>
         <div className="sidebar-label">WORKSPACE</div>
         <a className="side-link active">

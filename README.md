@@ -30,6 +30,8 @@ Employer job posts use PayPal checkout unless a platform admin has applied a 100
 
 Platform admins can set an employer-specific discount from the backoffice. Discounts apply to all job posting plans; a 100% discount makes postings free and bypasses PayPal checkout.
 
+Published and draft job posts expire 30 days after posting and are automatically removed by MongoDB's TTL index. Employers can renew a post from their workspace with a new paid checkout, extending its expiry by 30 days. Backoffice admins can set a job to Basic or Premium after confirming an offline invoice; the action is recorded as an offline payment.
+
 PayPal is configured for Live mode; add valid live credentials and confirm the merchant account is ready before accepting payments.
 
 For a live deployment, add these variables to the hosting provider's production environment settings and redeploy. Confirm the MongoDB database user/password are valid, URL-encode special characters in the connection string, and allow the hosting provider to connect in MongoDB Atlas network access settings. `.env.example` contains placeholders and should not be used as a live connection string.
@@ -67,6 +69,8 @@ All employer routes use an httpOnly cookie session (`hirzo_employer_session`).
 | `DELETE` | `/api/employers/jobs/:jobId` | Delete job |
 
 Paid job posting uses `POST /api/payments/paypal/create-order` with the job details and `plan` (`basic`, `premium`, or `full_recruitment`). The employer is redirected to PayPal; after approval, `/api/payments/paypal/capture` verifies the GBP amount before publishing the job.
+
+Renew an existing post using `POST /api/payments/paypal/renew-order` with `{ "jobId": "...", "plan": "basic" }`; capture is verified using the same PayPal endpoint. Backoffice admins can update a job's plan with `PATCH /api/admin/jobs/:jobId` after an offline invoice is confirmed.
 
 Create/update job body example:
 

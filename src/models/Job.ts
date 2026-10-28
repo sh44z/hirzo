@@ -21,6 +21,8 @@ export interface IJob {
   status: JobStatus;
   postingPlan: JobPostingPlan;
   postingPrice: number;
+  expiresAt: Date;
+  lastRenewalPaymentId?: mongoose.Types.ObjectId;
   featured: boolean;
   requirements: JobRequirements;
   paymentId?: mongoose.Types.ObjectId;
@@ -97,6 +99,15 @@ const JobSchema = new Schema<IJob>(
       required: true,
     },
     postingPrice: { type: Number, required: true },
+    expiresAt: {
+      type: Date,
+      required: true,
+      default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    },
+    lastRenewalPaymentId: {
+      type: Schema.Types.ObjectId,
+      ref: "JobPostingPayment",
+    },
     featured: { type: Boolean, default: false, index: true     },
     requirements: { type: JobRequirementsSchema, default: () => ({}) },
     paymentId: {

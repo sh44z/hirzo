@@ -8,9 +8,12 @@ export async function GET() {
   try {
     await connectDB();
 
-    const jobs = await Job.find({ status: "published" })
+    const jobs = await Job.find({
+      status: "published",
+      expiresAt: { $gt: new Date() },
+    })
       .select(
-        "title description location employmentType salaryMin salaryMax currency qualificationQuestions videoQuestions requirements featured postingPlan createdAt employerId",
+        "title description location employmentType salaryMin salaryMax currency qualificationQuestions videoQuestions requirements featured postingPlan createdAt expiresAt employerId",
       )
       .populate({ path: "employerId", select: "companyName", match: { active: { $ne: false } } })
       .sort({ featured: -1, createdAt: -1 })
@@ -40,6 +43,7 @@ export async function GET() {
         requirements: job.requirements,
         featured: job.postingPlan === "premium",
         createdAt: job.createdAt,
+        expiresAt: job.expiresAt,
       })),
     });
   } catch (error) {

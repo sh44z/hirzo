@@ -3,7 +3,7 @@ import { connectDB } from "@/lib/db";
 import { requireEmployerSession, badRequest, notFound, serverError } from "@/lib/auth";
 import { capturePayPalOrder, getPayPalAccessToken } from "@/lib/paypal";
 import { isJobPostingPlan } from "@/lib/job-posting-plans";
-import { createJobForPayment } from "@/lib/job-posting";
+import { createJobForPayment, renewJobForPayment } from "@/lib/job-posting";
 import { paypalCaptureSchema } from "@/lib/validations";
 import { JobPostingPayment } from "@/models/JobPostingPayment";
 import { Job } from "@/models/Job";
@@ -27,6 +27,59 @@ export async function POST(request: NextRequest) {
     const postingPlan: unknown = payment.plan;
     if (!isJobPostingPlan(postingPlan)) {
       return badRequest("Invalid job posting plan for this payment");
+    }
+    if (payment.renewalJobId) {
+      if (payment.jobId) {
+        const renewedJob = await Job.findOne({
+          _id: payment.jobId,
+          employerId: session.employerId,
+        });
+        if (!renewedJob) return notFound("This renewed job post is no longer available");
+        return NextResponse.json({
+          job: {
+            id: renewedJob._id.toString(),
+            title: renewedJob.title,
+            expiresAt: renewedJob.expiresAt,
+            renewed: true,
+          },
+        });
+      }
+      if (payment.status !== "pending" && payment.status !== "captured") {
+        return badRequest("This PayPal order is not ready for capture");
+      }
+      if (payment.status === "pending") {
+        const result = await capturePayPalOrder(
+          await getPayPalAccessToken(),
+          orderId,
+        );
+        const purchaseUnit = result.purchase_units?.[0];
+        const capture = purchaseUnit?.payments?.captures?.[0];
+        if (
+          result.status !== "COMPLETED" ||
+          capture?.status !== "COMPLETED" ||
+          purchaseUnit?.custom_id !== payment._id.toString() ||
+          capture.amount?.currency_code !== "GBP" ||
+          capture.amount.value !== payment.amount.toFixed(2)
+        ) {
+          return badRequest(
+            "PayPal did not confirm the expected completed payment",
+          );
+        }
+        payment.status = "captured";
+        await payment.save();
+      }
+      const renewedJob = await renewJobForPayment(payment);
+      if (!renewedJob) return notFound("This job is no longer available to renew");
+      payment.jobId = renewedJob._id;
+      await payment.save();
+      return NextResponse.json({
+        job: {
+          id: renewedJob._id.toString(),
+          title: renewedJob.title,
+          expiresAt: renewedJob.expiresAt,
+          renewed: true,
+        },
+      });
     }
     if (payment.jobId) {
       const existingJob = await Job.findOne({

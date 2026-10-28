@@ -35,6 +35,7 @@ function serializeJob(job: InstanceType<typeof Job>) {
     requirements: job.requirements,
     qualificationQuestions: job.qualificationQuestions,
     videoQuestions: job.videoQuestions,
+    expiresAt: job.expiresAt,
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
   };

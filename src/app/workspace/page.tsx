@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   getJobPostingPrice,
@@ -26,6 +27,7 @@ type Job = {
   postingPrice?: number;
   featured?: boolean;
   createdAt: string;
+  expiresAt: string;
 };
 
 type Applicant = {
@@ -55,7 +57,7 @@ export default function WorkspacePage() {
   const [showCreate, setShowCreate] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [qualificationQuestions, setQualificationQuestions] = useState<string[]>([]);
+  const [qualificationQuestions, setQualificationQuestions] = useState<Array<{ question: string; required: boolean }>>([]);
   const [selectedPlan, setSelectedPlan] = useState<JobPostingPlan>("basic");
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [applicantJob, setApplicantJob] = useState<Job | null>(null);
@@ -64,6 +66,7 @@ export default function WorkspacePage() {
   const [paymentNotice, setPaymentNotice] = useState("");
   const [pendingPayPalOrder, setPendingPayPalOrder] = useState("");
   const [capturingPayment, setCapturingPayment] = useState(false);
+  const [renewingJobId, setRenewingJobId] = useState("");
   const capturedOrder = useRef("");
 
   const loadWorkspace = useCallback(async () => {
@@ -133,7 +136,11 @@ export default function WorkspacePage() {
         if (!response.ok) {
           throw new Error(data.error || "Could not confirm your payment.");
         }
-        setPaymentNotice(`Payment confirmed. “${data.job.title}” is now in your job posts.`);
+        setPaymentNotice(
+          data.job.renewed
+            ? `“${data.job.title}” renewed through ${new Date(data.job.expiresAt).toLocaleDateString()}.`
+            : `Payment confirmed. “${data.job.title}” is now in your job posts.`,
+        );
         window.history.replaceState({}, "", window.location.pathname);
         await loadWorkspace();
       } catch (captureError) {
@@ -195,12 +202,13 @@ export default function WorkspacePage() {
       ...(form.get("salaryMax")
         ? { salaryMax: Number(form.get("salaryMax")) }
         : {}),
-      qualificationQuestions: form
-        .getAll("qualificationQuestion")
-        .map(String)
-        .map((question) => question.trim())
-        .filter(Boolean)
-        .map((question) => ({ question, type: "text", required: true })),
+      qualificationQuestions: qualificationQuestions
+        .map(({ question, required }) => ({
+          question: question.trim(),
+          type: "text",
+          required,
+        }))
+        .filter((question) => question.question),
       requirements: {
         skills: String(form.get("skills") || "")
           .split(/\n|,/)
@@ -254,6 +262,37 @@ export default function WorkspacePage() {
     setQualificationQuestions([]);
     setSelectedPlan("basic");
     setShowCreate(true);
+  }
+
+  async function renewJob(job: Job) {
+    setRenewingJobId(job.id);
+    setError("");
+    try {
+      const response = await fetch("/api/payments/paypal/renew-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId: job.id,
+          plan: job.postingPlan || "basic",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not renew this job.");
+      if (data.approvalUrl) {
+        window.location.assign(data.approvalUrl);
+        return;
+      }
+      setPaymentNotice(
+        `“${data.job.title}” renewed through ${new Date(data.job.expiresAt).toLocaleDateString()}.`,
+      );
+      await loadWorkspace();
+    } catch (renewError) {
+      setError(
+        renewError instanceof Error ? renewError.message : "Could not renew this job.",
+      );
+    } finally {
+      setRenewingJobId("");
+    }
   }
 
   async function updateJobStatus(job: Job) {
@@ -346,7 +385,7 @@ export default function WorkspacePage() {
     return (
       <main className="auth-shell">
         <Link className="brand" href="/">
-          <span className="brand-mark">h</span> hirzo
+          <Image src="/hirzologo.jpg" alt="Hirzo" width={90} height={52} className="brand-logo" />
         </Link>
         <section className="auth-card">
           <div className="eyebrow">EMPLOYER WORKSPACE</div>
@@ -441,7 +480,7 @@ export default function WorkspacePage() {
     <main className="workspace-shell">
       <aside className="workspace-sidebar">
         <Link className="brand" href="/">
-          <span className="brand-mark">h</span> hirzo
+          <Image src="/hirzologo.jpg" alt="Hirzo" width={90} height={52} className="brand-logo" />
         </Link>
         <div className="sidebar-label">WORKSPACE</div>
         <a className="side-link active">
@@ -574,6 +613,8 @@ export default function WorkspacePage() {
                           </>
                         )}
                         {job.featured && <span className="featured-job-label">Featured</span>}
+                        <i>·</i>
+                        <span>Expires {new Date(job.expiresAt).toLocaleDateString()}</span>
                       </div>
                     </div>
                     <span className={`status-pill ${job.status}`}>
@@ -598,6 +639,15 @@ export default function WorkspacePage() {
                       onClick={() => void updateJobStatus(job)}
                     >
                       {job.status === "published" ? "Unpublish" : "Publish"}
+                    </button>
+                    <button
+                      className="button button-light small-button"
+                      disabled={renewingJobId === job.id}
+                      onClick={() => void renewJob(job)}
+                    >
+                      {renewingJobId === job.id
+                        ? "Opening checkout…"
+                        : `Renew · £${getJobPostingPrice(job.postingPlan || "basic", employer.jobPostingDiscountPercent)}`}
                     </button>
                   </article>
                 ))}
@@ -770,11 +820,13 @@ export default function WorkspacePage() {
                       required
                       minLength={3}
                       rows={2}
-                      value={question}
+                      value={question.question}
                       onChange={(event) =>
                         setQualificationQuestions((current) =>
                           current.map((item, itemIndex) =>
-                            itemIndex === index ? event.target.value : item,
+                            itemIndex === index
+                              ? { ...item, question: event.target.value }
+                              : item,
                           ),
                         )
                       }
@@ -784,6 +836,22 @@ export default function WorkspacePage() {
                           : "Give an example of when you overcame an objection."
                       }
                     />
+                    <label className="question-required-toggle">
+                      <input
+                        type="checkbox"
+                        checked={question.required}
+                        onChange={(event) =>
+                          setQualificationQuestions((current) =>
+                            current.map((item, itemIndex) =>
+                              itemIndex === index
+                                ? { ...item, required: event.target.checked }
+                                : item,
+                            ),
+                          )
+                        }
+                      />
+                      Required
+                    </label>
                     <button
                       type="button"
                       className="button button-light remove-question"
@@ -802,7 +870,10 @@ export default function WorkspacePage() {
                   type="button"
                   className="button button-light add-question"
                   onClick={() =>
-                    setQualificationQuestions((current) => [...current, ""])
+                    setQualificationQuestions((current) => [
+                      ...current,
+                      { question: "", required: true },
+                    ])
                   }
                 >
                   ＋ Add a question

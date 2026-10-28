@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 type Admin = { adminId: string; email: string; name: string };
-type Employer = { id: string; email: string; companyName: string; contactName: string; active: boolean; jobPostingDiscountPercent: number; jobsCount: number; createdAt: string };
+type EmployerJob = { id: string; title: string; status: string; postingPlan: "basic" | "premium" | "full_recruitment"; postingPrice: number; expiresAt: string };
+type Employer = { id: string; email: string; companyName: string; contactName: string; active: boolean; jobPostingDiscountPercent: number; jobsCount: number; jobs: EmployerJob[]; createdAt: string };
 type Account = { id: string; email: string; name: string; active: boolean; createdAt: string };
 
 export default function BackofficePage() {
@@ -18,6 +20,9 @@ export default function BackofficePage() {
   const [showAdd, setShowAdd] = useState(false);
   const [creating, setCreating] = useState(false);
   const [offerEmployer, setOfferEmployer] = useState<Employer | null>(null);
+  const [managingEmployer, setManagingEmployer] = useState<Employer | null>(null);
+  const [savingJobId, setSavingJobId] = useState("");
+  const [jobPlanNotice, setJobPlanNotice] = useState("");
   const [offerPercent, setOfferPercent] = useState(0);
   const [savingOffer, setSavingOffer] = useState(false);
 
@@ -99,6 +104,37 @@ export default function BackofficePage() {
     }
   }
 
+  async function updateJobPlan(job: EmployerJob, postingPlan: "basic" | "premium") {
+    setSavingJobId(job.id);
+    setJobPlanNotice("");
+    try {
+      const response = await fetch(`/api/admin/jobs/${job.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postingPlan }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setJobPlanNotice(data.error || "Could not update the job plan");
+        return;
+      }
+      const updatedJob = { ...job, ...data.job };
+      setEmployers((current) => current.map((employer) => ({
+        ...employer,
+        jobs: employer.jobs.map((item) => item.id === job.id ? updatedJob : item),
+      })));
+      setManagingEmployer((current) => current ? {
+        ...current,
+        jobs: current.jobs.map((item) => item.id === job.id ? updatedJob : item),
+      } : current);
+      setJobPlanNotice(`“${job.title}” updated to ${postingPlan} after offline invoice payment.`);
+    } catch {
+      setJobPlanNotice("Could not update the job plan. Please try again.");
+    } finally {
+      setSavingJobId("");
+    }
+  }
+
   async function toggleAccount(account: Account) {
     setNotice("");
     const response = await fetch(`/api/admin/accounts/${account.id}`, {
@@ -130,7 +166,7 @@ export default function BackofficePage() {
   if (loading) return <main className="auth-shell"><div className="loading-mark">H</div><p>Opening backoffice…</p></main>;
   if (!admin) return (
     <main className="auth-shell admin-auth-shell">
-      <Link className="brand" href="/"><span className="brand-mark">h</span> hirzo</Link>
+      <Link className="brand" href="/"><Image src="/hirzologo.jpg" alt="Hirzo" width={90} height={52} className="brand-logo" /></Link>
       <section className="auth-card"><div className="eyebrow">HIRZO ADMINISTRATION</div><h1>Backoffice sign in.</h1><p className="muted">Manage employer accounts and platform administrators.</p>
         <form onSubmit={login} className="form-stack"><label>Admin email<input type="email" name="email" required defaultValue="admin@hirzo.com" /></label><label>Password<input type="password" name="password" required autoComplete="current-password" placeholder="Your admin password" /></label>{loginError && <p className="form-error">{loginError}</p>}<button type="submit" className="button button-dark button-full">Sign in to backoffice <span>→</span></button></form>
         <p className="auth-footnote">Initial access is provisioned with the server-side <strong>ADMIN_INITIAL_PASSWORD</strong> setting. Contact your platform owner if the initial account has not been configured.</p>
@@ -140,18 +176,19 @@ export default function BackofficePage() {
 
   return (
     <main className="workspace-shell admin-shell">
-      <aside className="workspace-sidebar"><Link className="brand" href="/"><span className="brand-mark">h</span> hirzo</Link><div className="sidebar-label">PLATFORM</div><button className={`side-link ${tab === "employers" ? "active" : ""}`} onClick={() => setTab("employers")}><span>⌂</span> Employers</button><button className={`side-link ${tab === "accounts" ? "active" : ""}`} onClick={() => setTab("accounts")}><span>♙</span> Master accounts</button><div className="sidebar-bottom"><div className="avatar admin-avatar">{admin.name.slice(0, 1)}</div><div className="user-label"><strong>{admin.name}</strong><span>Platform admin</span></div><button className="icon-button" aria-label="Sign out" onClick={logout}>↗</button></div></aside>
+      <aside className="workspace-sidebar"><Link className="brand" href="/"><Image src="/hirzologo.jpg" alt="Hirzo" width={90} height={52} className="brand-logo" /></Link><div className="sidebar-label">PLATFORM</div><button className={`side-link ${tab === "employers" ? "active" : ""}`} onClick={() => setTab("employers")}><span>⌂</span> Employers</button><button className={`side-link ${tab === "accounts" ? "active" : ""}`} onClick={() => setTab("accounts")}><span>♙</span> Master accounts</button><div className="sidebar-bottom"><div className="avatar admin-avatar">{admin.name.slice(0, 1)}</div><div className="user-label"><strong>{admin.name}</strong><span>Platform admin</span></div><button className="icon-button" aria-label="Sign out" onClick={logout}>↗</button></div></aside>
       <section className="workspace-content"><header className="workspace-topbar"><div><span className="breadcrumb">Backoffice</span><span className="breadcrumb-sep">/</span><strong>{tab === "employers" ? "Employers" : "Master accounts"}</strong></div><div className="topbar-actions"><Link href="/" className="text-link">View job board ↗</Link><span className="admin-indicator"><i /> Admin access</span></div></header>
         <div className="workspace-inner admin-inner"><div className="page-intro"><div><div className="eyebrow">PLATFORM CONTROL</div><h1>{tab === "employers" ? "Employer accounts" : "Master accounts"}</h1><p>{tab === "employers" ? "Review, manage and support every employer on Hirzo." : "Control who has access to the Hirzo backoffice."}</p></div>{tab === "accounts" && <button className="button button-dark" onClick={() => { setNotice(""); setShowAdd(true); }}>＋ Add master account</button>}</div>
           {notice && <div className="notice-banner"><span>✓</span>{notice}<button onClick={() => setNotice("")} aria-label="Dismiss">×</button></div>}
           <div className="metric-grid admin-metrics"><div className="metric-card"><span>{tab === "employers" ? "Registered employers" : "Master accounts"}</span><strong>{(tab === "employers" ? employers.length : accounts.length).toString().padStart(2, "0")}</strong><small>All time</small></div><div className="metric-card metric-highlight"><span>Active accounts</span><strong>{(tab === "employers" ? employers.filter((item) => item.active).length : accounts.filter((item) => item.active).length).toString().padStart(2, "0")}</strong><small>Currently enabled</small></div>{tab === "employers" && <div className="metric-card"><span>Job posts created</span><strong>{employers.reduce((sum, employer) => sum + employer.jobsCount, 0).toString().padStart(2, "0")}</strong><small>Across all employers</small></div>}</div>
           <section className="job-management admin-table-section"><div className="section-heading"><div><h2>{tab === "employers" ? "All employers" : "People with platform access"}</h2><p>{tab === "employers" ? "Pausing an account immediately blocks workspace access." : "Only add trusted operators. Passwords are stored securely."}</p></div><span className="table-count">{tab === "employers" ? employers.length : accounts.length} total</span></div>
-            {tab === "employers" ? <div className="admin-table"><div className="table-header employer-columns"><span>COMPANY</span><span>CONTACT</span><span>JOBS</span><span>POSTING OFFER</span><span>STATUS</span><span>ACTION</span></div>{employers.length === 0 ? <div className="table-empty">Employer accounts will appear here when they register.</div> : employers.map((item) => <div className="table-row employer-columns" key={item.id}><div className="company-cell"><div className="company-monogram">{item.companyName.slice(0, 1).toUpperCase()}</div><div><strong>{item.companyName}</strong><small>{item.email}</small></div></div><span className="table-secondary">{item.contactName}</span><span className="jobs-number">{item.jobsCount}</span><div className="offer-cell"><span>{item.jobPostingDiscountPercent === 100 ? "Free" : item.jobPostingDiscountPercent > 0 ? `${item.jobPostingDiscountPercent}% off` : "Standard"}</span><button className="table-action" onClick={() => { setOfferPercent(item.jobPostingDiscountPercent); setOfferEmployer(item); }}>Set offer</button></div><span><i className={`active-dot ${item.active ? "on" : "off"}`} />{item.active ? "Active" : "Paused"}</span><button className={`table-action ${item.active ? "pause-action" : "restore-action"}`} onClick={() => toggleEmployer(item)}>{item.active ? "Pause" : "Restore"}</button></div>)}</div> : <div className="admin-table"><div className="table-header account-columns"><span>ADMINISTRATOR</span><span>STATUS</span><span>ADDED</span><span>ACTION</span></div>{accounts.length === 0 ? <div className="table-empty">No additional master accounts yet.</div> : accounts.map((item) => <div className="table-row account-columns" key={item.id}><div className="company-cell"><div className="company-monogram admin-monogram">{item.name.slice(0, 1).toUpperCase()}</div><div><strong>{item.name}</strong><small>{item.email}</small></div></div><span><i className={`active-dot ${item.active ? "on" : "off"}`} />{item.active ? "Active" : "Disabled"}</span><span className="table-secondary">{new Date(item.createdAt).toLocaleDateString()}</span><button className={`table-action ${item.active ? "pause-action" : "restore-action"}`} onClick={() => toggleAccount(item)}>{item.active ? "Deactivate" : "Restore"}</button></div>)}</div>}
+            {tab === "employers" ? <div className="admin-table"><div className="table-header employer-columns"><span>COMPANY</span><span>CONTACT</span><span>JOBS</span><span>POSTING OFFER</span><span>STATUS</span><span>ACTION</span></div>{employers.length === 0 ? <div className="table-empty">Employer accounts will appear here when they register.</div> : employers.map((item) => <div className="table-row employer-columns" key={item.id}><div className="company-cell"><div className="company-monogram">{item.companyName.slice(0, 1).toUpperCase()}</div><div><strong>{item.companyName}</strong><small>{item.email}</small></div></div><span className="table-secondary">{item.contactName}</span><div className="offer-cell"><span className="jobs-number">{item.jobsCount}</span><button className="table-action" onClick={() => { setJobPlanNotice(""); setManagingEmployer(item); }}>Manage jobs</button></div><div className="offer-cell"><span>{item.jobPostingDiscountPercent === 100 ? "Free" : item.jobPostingDiscountPercent > 0 ? `${item.jobPostingDiscountPercent}% off` : "Standard"}</span><button className="table-action" onClick={() => { setOfferPercent(item.jobPostingDiscountPercent); setOfferEmployer(item); }}>Set offer</button></div><span><i className={`active-dot ${item.active ? "on" : "off"}`} />{item.active ? "Active" : "Paused"}</span><button className={`table-action ${item.active ? "pause-action" : "restore-action"}`} onClick={() => toggleEmployer(item)}>{item.active ? "Pause" : "Restore"}</button></div>)}</div> : <div className="admin-table"><div className="table-header account-columns"><span>ADMINISTRATOR</span><span>STATUS</span><span>ADDED</span><span>ACTION</span></div>{accounts.length === 0 ? <div className="table-empty">No additional master accounts yet.</div> : accounts.map((item) => <div className="table-row account-columns" key={item.id}><div className="company-cell"><div className="company-monogram admin-monogram">{item.name.slice(0, 1).toUpperCase()}</div><div><strong>{item.name}</strong><small>{item.email}</small></div></div><span><i className={`active-dot ${item.active ? "on" : "off"}`} />{item.active ? "Active" : "Disabled"}</span><span className="table-secondary">{new Date(item.createdAt).toLocaleDateString()}</span><button className={`table-action ${item.active ? "pause-action" : "restore-action"}`} onClick={() => toggleAccount(item)}>{item.active ? "Deactivate" : "Restore"}</button></div>)}</div>}
           </section>
           <div className="workspace-note"><span>♧</span><p><strong>Account controls are immediate.</strong><br />Disabled users lose access to their workspace on their next request.</p></div>
         </div>
       </section>
       {offerEmployer && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setOfferEmployer(null); }}><section className="job-modal"><div className="modal-heading"><div><div className="eyebrow">EMPLOYER PRICING</div><h2>Set a job posting offer</h2></div><button className="icon-button close-button" onClick={() => setOfferEmployer(null)} aria-label="Close">×</button></div><p className="muted modal-description">Set a discount for {offerEmployer.companyName}. The offer applies to all job posting plans.</p><form onSubmit={saveEmployerOffer} className="form-stack modal-form"><label>Discount percentage<input type="number" name="discountPercent" min="0" max="100" step="1" required value={offerPercent} onChange={(event) => setOfferPercent(Number(event.target.value))} /><small className="field-hint">Enter 0 for standard pricing or 100 to make job postings free.</small></label><div className="modal-actions"><button type="button" className="button button-light" onClick={() => setOfferEmployer(null)}>Cancel</button><button type="submit" disabled={savingOffer} className="button button-dark">{savingOffer ? "Saving…" : "Save offer"}<span>→</span></button></div></form></section></div>}
+      {managingEmployer && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setManagingEmployer(null); }}><section className="job-modal"><div className="modal-heading"><div><div className="eyebrow">OFFLINE INVOICE PAYMENT</div><h2>Manage {managingEmployer.companyName} jobs</h2></div><button className="icon-button close-button" onClick={() => setManagingEmployer(null)} aria-label="Close">×</button></div><p className="muted modal-description">Set the plan after confirming the employer has paid their invoice offline. This records the plan payment and updates the job immediately.</p>{jobPlanNotice && <p className={jobPlanNotice.includes("updated to") ? "notice-banner" : "form-error"}>{jobPlanNotice}</p>}{managingEmployer.jobs.length === 0 ? <p className="muted">This employer has no jobs.</p> : <div className="managed-jobs">{managingEmployer.jobs.map((job) => <div className="managed-job" key={job.id}><div className="managed-job-main"><h3>{job.title}</h3><div className="job-meta"><span>{job.status}</span><i>·</i><span>Expires {new Date(job.expiresAt).toLocaleDateString()}</span></div></div><label className="admin-job-plan">Plan<select aria-label={`Plan for ${job.title}`} value={job.postingPlan} disabled={savingJobId === job.id} onChange={(event) => { if (event.target.value === "basic" || event.target.value === "premium") void updateJobPlan(job, event.target.value); }}><option value="basic">Basic (£79)</option><option value="premium">Premium (£110)</option>{job.postingPlan === "full_recruitment" && <option value="full_recruitment" disabled>Full recruitment (current)</option>}</select></label></div>)}</div>}<div className="modal-actions"><button type="button" className="button button-light" onClick={() => setManagingEmployer(null)}>Done</button></div></section></div>}
       {showAdd && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowAdd(false); }}><section className="job-modal"><div className="modal-heading"><div><div className="eyebrow">PLATFORM ACCESS</div><h2>Add a master account</h2></div><button className="icon-button close-button" onClick={() => setShowAdd(false)} aria-label="Close">×</button></div><p className="muted modal-description">This person will have full access to employer controls and other master accounts.</p><form onSubmit={createAccount} className="form-stack modal-form"><label>Full name<input name="name" required minLength={2} placeholder="Jordan Lee" /></label><label>Email address<input type="email" name="email" required placeholder="jordan@hirzo.com" /></label><label>Temporary password<input type="password" name="password" required minLength={12} placeholder="At least 12 characters" /><small className="field-hint">Share this securely and have them rotate it after sign in.</small></label>{notice && <p className="form-error">{notice}</p>}<div className="modal-actions"><button type="button" className="button button-light" onClick={() => setShowAdd(false)}>Cancel</button><button type="submit" disabled={creating} className="button button-dark">{creating ? "Adding…" : "Add account"}<span>→</span></button></div></form></section></div>}
     </main>
   );

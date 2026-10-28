@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
         (a) => a.questionId === question.id,
       );
       if (!answer?.answer?.trim()) {
-        return badRequest(`Missing answer for: ${question.question}`);
+        return badRequest(`${question.question} is required.`);
       }
     }
 

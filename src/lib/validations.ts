@@ -114,7 +114,10 @@ export const paypalCaptureSchema = z.object({
   orderId: z.string().min(1).max(128),
 });
 
-export const updateJobSchema = createJobSchema.partial();
+export const updateJobSchema = createJobSchema.partial().extend({
+  salaryMin: z.number().nonnegative().nullable().optional(),
+  salaryMax: z.number().nonnegative().nullable().optional(),
+});
 
 export const updateApplicationStatusSchema = z.object({
   status: z.enum(["applied", "shortlisted", "interview", "hired", "rejected"]),

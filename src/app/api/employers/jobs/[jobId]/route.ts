@@ -84,14 +84,6 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       return badRequest(parsed.error.issues[0]?.message || "Invalid input");
     }
 
-    if (
-      parsed.data.salaryMin != null &&
-      parsed.data.salaryMax != null &&
-      parsed.data.salaryMin > parsed.data.salaryMax
-    ) {
-      return badRequest("salaryMin cannot be greater than salaryMax");
-    }
-
     await connectDB();
 
     const job = await Job.findOne({
@@ -102,6 +94,18 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (!job) return notFound("Job not found");
 
     const updates = parsed.data;
+    const salaryMin =
+      updates.salaryMin === undefined ? job.salaryMin : updates.salaryMin;
+    const salaryMax =
+      updates.salaryMax === undefined ? job.salaryMax : updates.salaryMax;
+    if (
+      (updates.salaryMin !== undefined || updates.salaryMax !== undefined) &&
+      salaryMin != null &&
+      salaryMax != null &&
+      salaryMin > salaryMax
+    ) {
+      return badRequest("salaryMin cannot be greater than salaryMax");
+    }
 
     if (updates.title !== undefined) job.title = updates.title;
     if (updates.description !== undefined) job.description = updates.description;
@@ -109,8 +113,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (updates.employmentType !== undefined) {
       job.employmentType = updates.employmentType;
     }
-    if (updates.salaryMin !== undefined) job.salaryMin = updates.salaryMin;
-    if (updates.salaryMax !== undefined) job.salaryMax = updates.salaryMax;
+    if (updates.salaryMin === null) job.salaryMin = undefined;
+    else if (updates.salaryMin !== undefined) job.salaryMin = updates.salaryMin;
+    if (updates.salaryMax === null) job.salaryMax = undefined;
+    else if (updates.salaryMax !== undefined) job.salaryMax = updates.salaryMax;
     if (updates.currency !== undefined) job.currency = updates.currency;
     if (updates.status !== undefined) job.status = updates.status;
     if (updates.qualificationQuestions !== undefined) {

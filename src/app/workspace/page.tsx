@@ -21,8 +21,12 @@ type Employer = {
 type Job = {
   id: string;
   title: string;
+  description: string;
   location: string;
   employmentType: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  currency: string;
   status: string;
   postingPlan?: JobPostingPlan;
   postingPrice?: number;
@@ -72,8 +76,12 @@ export default function WorkspacePage() {
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [companyLogoPreview, setCompanyLogoPreview] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [deletingJobId, setDeletingJobId] = useState("");
   const [qualificationQuestions, setQualificationQuestions] = useState<Array<{ question: string; required: boolean }>>([]);
   const [selectedPlan, setSelectedPlan] = useState<JobPostingPlan>("basic");
   const [applicants, setApplicants] = useState<Applicant[]>([]);
@@ -350,6 +358,74 @@ export default function WorkspacePage() {
     } else {
       const data = await response.json();
       setError(data.error || "Could not update the job.");
+    }
+  }
+
+  async function saveJobEdits(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingJob) return;
+    setSavingEdit(true);
+    setEditError("");
+    const form = new FormData(event.currentTarget);
+    const salaryMin = String(form.get("salaryMin") || "");
+    const salaryMax = String(form.get("salaryMax") || "");
+    const payload = {
+      title: String(form.get("title")),
+      description: String(form.get("description")),
+      location: String(form.get("location")),
+      employmentType: String(form.get("employmentType")),
+      salaryMin: salaryMin ? Number(salaryMin) : null,
+      salaryMax: salaryMax ? Number(salaryMax) : null,
+      status: String(form.get("status")),
+    };
+    try {
+      const response = await fetch(`/api/employers/jobs/${editingJob.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not save job changes.");
+      setJobs((current) =>
+        current.map((job) => (job.id === editingJob.id ? data.job : job)),
+      );
+      setPaymentNotice(`“${data.job.title}” has been updated.`);
+      setEditingJob(null);
+    } catch (editError) {
+      setEditError(
+        editError instanceof TypeError
+          ? "Could not connect to Hirzo. Check your connection and try again."
+          : editError instanceof Error
+            ? editError.message
+            : "Could not save job changes.",
+      );
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function deleteJob(job: Job) {
+    if (!window.confirm(`Delete “${job.title}”? This cannot be undone.`)) return;
+    setDeletingJobId(job.id);
+    setError("");
+    try {
+      const response = await fetch(`/api/employers/jobs/${job.id}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not delete the job.");
+      setJobs((current) => current.filter((item) => item.id !== job.id));
+      setPaymentNotice(`“${job.title}” has been deleted.`);
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof TypeError
+          ? "Could not connect to Hirzo. Check your connection and try again."
+          : deleteError instanceof Error
+            ? deleteError.message
+            : "Could not delete the job.",
+      );
+    } finally {
+      setDeletingJobId("");
     }
   }
 
@@ -752,6 +828,22 @@ export default function WorkspacePage() {
                     </button>
                     <button
                       className="button button-light small-button"
+                      onClick={() => {
+                        setEditError("");
+                        setEditingJob(job);
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="button button-light small-button"
+                      disabled={deletingJobId === job.id}
+                      onClick={() => void deleteJob(job)}
+                    >
+                      {deletingJobId === job.id ? "Deleting…" : "Delete"}
+                    </button>
+                    <button
+                      className="button button-light small-button"
                       disabled={renewingJobId === job.id}
                       onClick={() => void renewJob(job)}
                     >
@@ -1016,6 +1108,125 @@ export default function WorkspacePage() {
                       ? "Post for free"
                       : `Pay £${getJobPostingPrice(selectedPlan, employer.jobPostingDiscountPercent)} with PayPal`}
                   <span>→</span>
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {editingJob && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !savingEdit) {
+              setEditingJob(null);
+            }
+          }}
+        >
+          <section className="job-modal">
+            <div className="modal-heading">
+              <div>
+                <div className="eyebrow">EDIT JOB</div>
+                <h2>Update your role</h2>
+              </div>
+              <button
+                className="icon-button close-button"
+                onClick={() => setEditingJob(null)}
+                aria-label="Close"
+                disabled={savingEdit}
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={saveJobEdits} className="form-stack modal-form">
+              <label>
+                Job title
+                <input
+                  name="title"
+                  required
+                  minLength={3}
+                  maxLength={160}
+                  defaultValue={editingJob.title}
+                />
+              </label>
+              <div className="form-row">
+                <label>
+                  Location
+                  <input
+                    name="location"
+                    required
+                    minLength={2}
+                    maxLength={160}
+                    defaultValue={editingJob.location}
+                  />
+                </label>
+                <label>
+                  Employment type
+                  <select
+                    name="employmentType"
+                    defaultValue={editingJob.employmentType}
+                  >
+                    {Object.entries(typeLabels).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="form-row">
+                <label>
+                  Salary from (£)
+                  <input
+                    type="number"
+                    name="salaryMin"
+                    min="0"
+                    defaultValue={editingJob.salaryMin ?? ""}
+                  />
+                </label>
+                <label>
+                  Salary to (£)
+                  <input
+                    type="number"
+                    name="salaryMax"
+                    min="0"
+                    defaultValue={editingJob.salaryMax ?? ""}
+                  />
+                </label>
+              </div>
+              <label>
+                About the role
+                <textarea
+                  name="description"
+                  required
+                  minLength={20}
+                  rows={6}
+                  defaultValue={editingJob.description}
+                />
+              </label>
+              <label>
+                Visibility
+                <select name="status" defaultValue={editingJob.status}>
+                  <option value="published">Published</option>
+                  <option value="draft">Draft</option>
+                  <option value="closed">Closed</option>
+                </select>
+              </label>
+              {editError && <p className="form-error">{editError}</p>}
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="button button-light"
+                  onClick={() => setEditingJob(null)}
+                  disabled={savingEdit}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="button button-dark"
+                  disabled={savingEdit}
+                >
+                  {savingEdit ? "Saving…" : "Save changes"} <span>→</span>
                 </button>
               </div>
             </form>

@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
         email,
         passwordHash,
         companyName: parsed.data.companyName,
+        companyLogo: parsed.data.companyLogo,
         contactName: parsed.data.contactName,
       });
     } catch (error) {
@@ -60,6 +61,9 @@ export async function POST(request: NextRequest) {
           id: employer._id.toString(),
           email: employer.email,
           companyName: employer.companyName,
+          companyLogo: employer.companyLogo
+            ? `/api/employers/${employer._id.toString()}/logo`
+            : undefined,
           contactName: employer.contactName,
         },
       },

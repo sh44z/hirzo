@@ -5,6 +5,7 @@ export interface IEmployer {
   email: string;
   passwordHash: string;
   companyName: string;
+  companyLogo?: string;
   contactName: string;
   active: boolean;
   jobPostingDiscountPercent: number;
@@ -23,6 +24,7 @@ const EmployerSchema = new Schema<IEmployer>(
     },
     passwordHash: { type: String, required: true },
     companyName: { type: String, required: true, trim: true },
+    companyLogo: { type: String },
     contactName: { type: String, required: true, trim: true },
     active: { type: Boolean, default: true },
     jobPostingDiscountPercent: { type: Number, min: 0, max: 100, default: 0 },

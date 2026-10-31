@@ -43,7 +43,7 @@ npm install
 npm run dev
 ```
 
-Visit `/` for the public job board, `/workspace` for employer registration/sign-in and job management, and `/backoffice` for platform administration. Set `ADMIN_INITIAL_PASSWORD` before the first admin login. Signed-in admins can create and deactivate additional master accounts.
+Visit `/` for the public job board, `/workspace` for employer registration/sign-in and job management, and `/backoffice` for platform administration. Employers can optionally upload a PNG, JPEG, or WebP company logo (up to 500 KB) during registration; it appears on their job listings. Premium posts appear as featured roles and can be found with the Featured filter. Set `ADMIN_INITIAL_PASSWORD` before the first admin login. Signed-in admins can create and deactivate additional master accounts.
 
 ## Employer API
 
@@ -53,7 +53,7 @@ All employer routes use an httpOnly cookie session (`hirzo_employer_session`).
 
 | Method | Path | Body |
 |--------|------|------|
-| `POST` | `/api/auth/register` | `{ email, password, companyName, contactName }` |
+| `POST` | `/api/auth/register` | `{ email, password, companyName, contactName, companyLogo? }` (`companyLogo` is an optional PNG/JPEG/WebP data URL) |
 | `POST` | `/api/auth/login` | `{ email, password }` |
 | `POST` | `/api/auth/logout` | — |
 | `GET` | `/api/auth/me` | — |
@@ -148,6 +148,7 @@ Setting status to `interview` generates an invite token for later candidate emai
 | Method | Path | Notes |
 |--------|------|------|
 | `GET` | `/api/jobs/public` | Published jobs |
+| `GET` | `/api/employers/:employerId/logo` | Public company logo image |
 | `POST` | `/api/applications` | Apply without an account |
 
 ## Pipeline

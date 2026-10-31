@@ -109,6 +109,7 @@ button { color: inherit; }
 .job-card:hover { transform: translateY(-3px); border-color: #dfd9cc; box-shadow: 0 13px 30px rgba(62, 57, 46, .07); }
 .job-card-top { display: flex; align-items: center; }
 .job-company-icon, .company-monogram { display: grid; flex: 0 0 auto; place-items: center; width: 38px; height: 38px; border-radius: 10px; color: #484131; font: 19px Georgia, serif; }
+.job-company-logo { display: block; flex: 0 0 auto; width: 38px; height: 38px; border: 1px solid #eeece7; border-radius: 10px; background: #fff; object-fit: contain; }
 .mint, .lilac, .peach, .blue, .yellow { background: #f0e7d4; color: #745c32; }
 .posted-label { margin-left: auto; color: #9d9b95; font-size: 10px; }
 .feature-badge { margin-left: 9px; padding: 5px 8px; border-radius: 99px; background: #f3efe7; color: #6b6045; font-size: 8px; font-weight: 700; }
@@ -157,6 +158,7 @@ button { color: inherit; }
 .side-link.active { background: #f2efe9; color: #5b5340; font-weight: 600; }
 .sidebar-bottom { display: flex; align-items: center; gap: 9px; margin-top: auto; padding: 15px 2px 0; border-top: 1px solid #ededeb; }
 .avatar { display: grid; flex: 0 0 auto; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: #e9e2d0; color: #635a44; font: 17px Georgia, serif; }
+.avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
 .admin-avatar { background: #e5e0ed; color: #655574; }
 .user-label { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
 .user-label strong { overflow: hidden; color: #423f37; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
@@ -192,6 +194,7 @@ button { color: inherit; }
 .managed-job { display: flex; align-items: center; gap: 14px; min-height: 76px; padding: 13px 17px; border-bottom: 1px solid #f0efeb; }
 .managed-job:last-child { border-bottom: 0; }
 .managed-job .company-monogram { width: 39px; height: 39px; }
+.managed-job .job-company-logo { width: 39px; height: 39px; }
 .managed-job-main { min-width: 0; flex: 1; }
 .managed-job-main h3 { overflow: hidden; margin: 0 0 5px; color: #443f35; font: 16px Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
 .admin-job-plan { display: flex; min-width: 145px; flex-direction: column; gap: 5px; color: #807c73; font-size: 9px; }
@@ -219,6 +222,9 @@ button { color: inherit; }
 .form-stack textarea { min-height: auto; padding: 10px 11px; resize: vertical; line-height: 1.6; }
 .form-stack input:focus, .form-stack textarea:focus, .form-stack select:focus { border-color: #b4aa92; box-shadow: 0 0 0 3px rgba(180, 170, 146, .14); }
 .form-stack input::placeholder, .form-stack textarea::placeholder { color: #b3b1ab; }
+.form-stack input[type="file"] { min-height: 42px; padding: 9px; }
+.logo-upload-preview { display: flex; align-items: center; gap: 12px; color: #77736a; font-size: 10px; }
+.logo-upload-preview img { width: 48px; height: 48px; border: 1px solid #e6e4df; border-radius: 7px; background: #fff; object-fit: contain; }
 .form-error { margin: 0; color: #a14f43; font-size: 10px; line-height: 1.5; }
 .auth-switch { margin: 20px 0 0; color: #8e8c86; font-size: 10px; text-align: center; }
 .auth-switch button { padding: 0; border: 0; background: transparent; color: #645b47; font-weight: 700; cursor: pointer; }

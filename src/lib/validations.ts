@@ -5,6 +5,14 @@ export const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8, "Password must be at least 8 characters"),
   companyName: z.string().min(2).max(120),
+  companyLogo: z
+    .string()
+    .max(700_000)
+    .regex(
+      /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/,
+      "Company logo must be a PNG, JPEG, or WebP image",
+    )
+    .optional(),
   contactName: z.string().min(2).max(120),
 });
 

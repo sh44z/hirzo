@@ -13,6 +13,7 @@ type Employer = {
   id: string;
   email: string;
   companyName: string;
+  companyLogo?: string;
   contactName: string;
   jobPostingDiscountPercent: number;
 };
@@ -48,12 +49,28 @@ const typeLabels: Record<string, string> = {
 };
 
 const planIds = ["basic", "premium", "full_recruitment"] as const;
+const MAX_COMPANY_LOGO_SIZE = 500 * 1024;
+const COMPANY_LOGO_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") resolve(reader.result);
+      else reject(new Error("Could not read the company logo."));
+    };
+    reader.onerror = () => reject(new Error("Could not read the company logo."));
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function WorkspacePage() {
   const [employer, setEmployer] = useState<Employer | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [companyLogoPreview, setCompanyLogoPreview] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -161,27 +178,47 @@ export default function WorkspacePage() {
   async function handleAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    const form = new FormData(event.currentTarget);
-    const payload: Record<string, string> = {
-      email: String(form.get("email")),
-      password: String(form.get("password")),
-    };
-    if (registering) {
-      payload.companyName = String(form.get("companyName"));
-      payload.contactName = String(form.get("contactName"));
+    setAuthSubmitting(true);
+    try {
+      const form = new FormData(event.currentTarget);
+      const payload: Record<string, string> = {
+        email: String(form.get("email")),
+        password: String(form.get("password")),
+      };
+      if (registering) {
+        payload.companyName = String(form.get("companyName"));
+        payload.contactName = String(form.get("contactName"));
+        const logoFile = form.get("companyLogo");
+        if (logoFile instanceof File && logoFile.size > 0) {
+          if (!COMPANY_LOGO_TYPES.includes(logoFile.type)) {
+            throw new Error("Choose a PNG, JPEG, or WebP company logo.");
+          }
+          if (logoFile.size > MAX_COMPANY_LOGO_SIZE) {
+            throw new Error("Company logos must be 500 KB or smaller.");
+          }
+          payload.companyLogo = await readFileAsDataUrl(logoFile);
+        }
+      }
+      const response = await fetch(`/api/auth/${registering ? "register" : "login"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not sign in.");
+      setEmployer(data.employer);
+      await loadWorkspace();
+    } catch (authError) {
+      setError(
+        authError instanceof TypeError
+          ? "Could not connect to Hirzo. Check your connection and try again."
+          : authError instanceof Error
+            ? authError.message
+            : "Could not sign in. Please try again.",
+      );
+    } finally {
+      setAuthSubmitting(false);
     }
-    const response = await fetch(`/api/auth/${registering ? "register" : "login"}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      setError(data.error || "Could not sign in");
-      return;
-    }
-    setEmployer(data.employer);
-    await loadWorkspace();
   }
 
   async function createJob(event: FormEvent<HTMLFormElement>) {
@@ -249,8 +286,10 @@ export default function WorkspacePage() {
       setSaving(false);
     } catch (checkoutError) {
       setError(
-        checkoutError instanceof Error
-          ? checkoutError.message
+        checkoutError instanceof TypeError
+          ? "Could not connect to Hirzo or PayPal. Check your connection and try again."
+          : checkoutError instanceof Error
+            ? checkoutError.message
           : "Could not start PayPal checkout.",
       );
       setSaving(false);
@@ -408,6 +447,51 @@ export default function WorkspacePage() {
                   />
                 </label>
                 <label>
+                  Company logo <span className="optional-label">Optional · PNG, JPEG, or WebP · 500 KB max</span>
+                  <input
+                    type="file"
+                    name="companyLogo"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={(event) => {
+                      const file = event.currentTarget.files?.[0];
+                      setCompanyLogoPreview("");
+                      if (!file) return;
+                      if (!COMPANY_LOGO_TYPES.includes(file.type)) {
+                        setError("Choose a PNG, JPEG, or WebP company logo.");
+                        event.currentTarget.value = "";
+                        return;
+                      }
+                      if (file.size > MAX_COMPANY_LOGO_SIZE) {
+                        setError("Company logos must be 500 KB or smaller.");
+                        event.currentTarget.value = "";
+                        return;
+                      }
+                      setError("");
+                      void readFileAsDataUrl(file)
+                        .then(setCompanyLogoPreview)
+                        .catch((logoError: unknown) =>
+                          setError(
+                            logoError instanceof Error
+                              ? logoError.message
+                              : "Could not read the company logo.",
+                          ),
+                        );
+                    }}
+                  />
+                </label>
+                {companyLogoPreview && (
+                  <div className="logo-upload-preview">
+                    <Image
+                      src={companyLogoPreview}
+                      alt="Company logo preview"
+                      width={64}
+                      height={64}
+                      unoptimized
+                    />
+                    <span>Logo preview</span>
+                  </div>
+                )}
+                <label>
                   Your name
                   <input
                     name="contactName"
@@ -438,8 +522,12 @@ export default function WorkspacePage() {
               />
             </label>
             {error && <p className="form-error">{error}</p>}
-            <button className="button button-dark button-full" type="submit">
-              {registering ? "Create account" : "Sign in to workspace"}
+            <button className="button button-dark button-full" type="submit" disabled={authSubmitting}>
+              {authSubmitting
+                ? "Please wait…"
+                : registering
+                  ? "Create account"
+                  : "Sign in to workspace"}
               <span>→</span>
             </button>
           </form>
@@ -449,6 +537,7 @@ export default function WorkspacePage() {
               onClick={() => {
                 setRegistering(!registering);
                 setError("");
+                setCompanyLogoPreview("");
               }}
             >
               {registering ? "Sign in" : "Create an account"}
@@ -491,7 +580,17 @@ export default function WorkspacePage() {
         </a>
         <div className="sidebar-bottom">
           <div className="avatar">
-            {employer.companyName.slice(0, 1).toUpperCase()}
+            {employer.companyLogo ? (
+              <Image
+                src={employer.companyLogo}
+                alt={`${employer.companyName} logo`}
+                width={36}
+                height={36}
+                unoptimized
+              />
+            ) : (
+              employer.companyName.slice(0, 1).toUpperCase()
+            )}
           </div>
           <div className="user-label">
             <strong>{employer.companyName}</strong>
@@ -592,9 +691,20 @@ export default function WorkspacePage() {
               <div className="managed-jobs">
                 {jobs.map((job) => (
                   <article className="managed-job" key={job.id}>
-                    <div className="company-monogram">
-                      {employer.companyName.slice(0, 1).toUpperCase()}
-                    </div>
+                    {employer.companyLogo ? (
+                      <Image
+                        className="job-company-logo"
+                        src={employer.companyLogo}
+                        alt={`${employer.companyName} logo`}
+                        width={39}
+                        height={39}
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="company-monogram">
+                        {employer.companyName.slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
                     <div className="managed-job-main">
                       <h3>{job.title}</h3>
                       <div className="job-meta">

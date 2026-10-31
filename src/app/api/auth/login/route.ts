@@ -50,6 +50,9 @@ export async function POST(request: NextRequest) {
         id: employer._id.toString(),
         email: employer.email,
         companyName: employer.companyName,
+        companyLogo: employer.companyLogo
+          ? `/api/employers/${employer._id.toString()}/logo`
+          : undefined,
         contactName: employer.contactName,
       },
     });

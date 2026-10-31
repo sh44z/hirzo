@@ -49,7 +49,9 @@ const videoQuestionSchema = z.object({
   required: z.boolean().optional().default(true),
 });
 
-const requirementListSchema = z.array(z.string().trim().min(1).max(200)).max(30);
+const requirementListSchema = z
+  .array(z.string().trim().min(1).max(200))
+  .max(100, "Each job requirements list can contain at most 100 items");
 const jobRequirementsSchema = z
   .object({
     skills: requirementListSchema.default([]),

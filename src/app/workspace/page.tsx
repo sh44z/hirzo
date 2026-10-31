@@ -977,10 +977,11 @@ export default function WorkspacePage() {
                 <legend>Job requirements</legend>
                 <p className="field-hint">
                   Add role-related skills, qualifications, and responsibilities.
-                  Do not include age, sex, ethnicity, disability, or other protected traits.
+                  Add up to 100 items in each list. Do not include age, sex,
+                  ethnicity, disability, or other protected traits.
                 </p>
                 <label>
-                  Required skills <span className="optional-label">One per line or comma-separated</span>
+                  Required skills <span className="optional-label">One per line or comma-separated · Up to 100</span>
                   <textarea name="skills" rows={3} placeholder={"e.g. Salesforce\nConsultative selling"} />
                 </label>
                 <label>
@@ -988,15 +989,15 @@ export default function WorkspacePage() {
                   <input type="number" name="yearsExperience" min="0" max="60" defaultValue="0" />
                 </label>
                 <label>
-                  Qualifications <span className="optional-label">One per line or comma-separated</span>
+                  Qualifications <span className="optional-label">One per line or comma-separated · Up to 100</span>
                   <textarea name="qualifications" rows={3} placeholder="e.g. Relevant professional certification" />
                 </label>
                 <label>
-                  Responsibilities <span className="optional-label">One per line or comma-separated</span>
+                  Responsibilities <span className="optional-label">One per line or comma-separated · Up to 100</span>
                   <textarea name="responsibilities" rows={3} placeholder={"e.g. Manage the full sales cycle\nBuild a qualified pipeline"} />
                 </label>
                 <label>
-                  Other job-related requirements <span className="optional-label">One per line or comma-separated</span>
+                  Other job-related requirements <span className="optional-label">One per line or comma-separated · Up to 100</span>
                   <textarea name="otherRequirements" rows={3} placeholder="e.g. Comfortable presenting to clients" />
                 </label>
               </fieldset>

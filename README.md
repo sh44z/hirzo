@@ -45,6 +45,8 @@ npm run dev
 
 Visit `/` for the public job board, `/workspace` for employer registration/sign-in and job management, and `/backoffice` for platform administration. Employers can edit a job's title, description, location, employment type, salary, and visibility, or delete a post from the workspace. Employers can optionally upload a PNG, JPEG, or WebP company logo (up to 500 KB) during registration; it appears on their job listings. Premium posts appear as featured roles and can be found with the Featured filter. Set `ADMIN_INITIAL_PASSWORD` before the first admin login. Signed-in admins can create and deactivate additional master accounts.
 
+Each job requirements category (skills, qualifications, responsibilities, and other requirements) accepts up to 100 items, with each item limited to 200 characters.
+
 ## Employer API
 
 All employer routes use an httpOnly cookie session (`hirzo_employer_session`).

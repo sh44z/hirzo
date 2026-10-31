@@ -47,6 +47,8 @@ Visit `/` for the public job board, `/workspace` for employer registration/sign-
 
 Each job requirements category (skills, qualifications, responsibilities, and other requirements) accepts up to 100 items, with each item limited to 200 characters.
 
+The public job details view includes any optional role requirements and application questions provided by the employer, along with the job description and listing information.
+
 ## Employer API
 
 All employer routes use an httpOnly cookie session (`hirzo_employer_session`).

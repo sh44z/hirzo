@@ -7,6 +7,13 @@ import { useEffect, useMemo, useState } from "react";
 type Job = {
   id: string; title: string; description: string; location: string; employmentType: string;
   companyName: string; companyLogo?: string; salaryMin?: number; salaryMax?: number; currency: string; createdAt: string; featured?: boolean;
+  requirements?: {
+    skills?: string[];
+    yearsExperience?: number;
+    qualifications?: string[];
+    responsibilities?: string[];
+    otherRequirements?: string[];
+  };
   qualificationQuestions?: Array<{ id: string; question: string; required: boolean; type: string; options?: Array<string> }>;
   videoQuestions?: Array<{ id: string; question: string; required: boolean; maxDurationSeconds: number }>;
 };
@@ -23,13 +30,58 @@ function salaryLabel(job: Job) {
   return job.salaryMin ? `${format(job.salaryMin)}+` : `Up to ${format(job.salaryMax!)}`;
 }
 
+function getRoleDetailsDescription(job: Job) {
+  const details: string[] = [
+    `Posted: ${new Date(job.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`,
+  ];
+  if (job.featured) details.push("Featured role");
+
+  const requirements = job.requirements;
+  if (requirements?.yearsExperience) {
+    details.push(`Minimum experience: ${requirements.yearsExperience} years`);
+  }
+  const requirementGroups = [
+    ["Skills", requirements?.skills],
+    ["Qualifications", requirements?.qualifications],
+    ["Responsibilities", requirements?.responsibilities],
+    ["Other requirements", requirements?.otherRequirements],
+  ] as const;
+  for (const [label, items] of requirementGroups) {
+    if (items?.length) {
+      details.push(`${label}:`, ...items.map((item) => `- ${item}`));
+    }
+  }
+  if (job.qualificationQuestions?.length) {
+    details.push(
+      "Application questions:",
+      ...job.qualificationQuestions.map((question) => `- ${question.question}`),
+    );
+  }
+  if (job.videoQuestions?.length) {
+    details.push(
+      "Video questions:",
+      ...job.videoQuestions.map(
+        (question) =>
+          `- ${question.question} (up to ${Math.floor(question.maxDurationSeconds / 60)} min)`,
+      ),
+    );
+  }
+
+  return `${job.description}\n\nRole details\n${details.join("\n")}`;
+}
+
 export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [location, setLocation] = useState("");
   const [filter, setFilter] = useState("All roles");
-  const [selected, setSelected] = useState<Job | null>(null);
+  const [selected, setSelectedState] = useState<Job | null>(null);
+  function setSelected(job: Job | null) {
+    setSelectedState(
+      job ? { ...job, description: getRoleDetailsDescription(job) } : null,
+    );
+  }
   const [applying, setApplying] = useState(false);
   const [applicationDone, setApplicationDone] = useState(false);
   const [applicationError, setApplicationError] = useState("");

@@ -36,6 +36,7 @@ const QualificationQuestionSchema = new Schema(
   {
     id: { type: String, required: true },
     question: { type: String, required: true },
+    expectedAnswer: { type: String, trim: true },
     type: {
       type: String,
       enum: ["text", "yes_no", "multiple_choice"],

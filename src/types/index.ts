@@ -19,6 +19,7 @@ export type ApplicationStatus =
 export interface QualificationQuestion {
   id: string;
   question: string;
+  expectedAnswer?: string;
   type: QualificationQuestionType;
   options?: string[];
   required: boolean;

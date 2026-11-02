@@ -2,7 +2,7 @@
 
 End-to-end job board built with **Next.js** and **MongoDB**.
 
-Hirzo includes a public job board, an employer workspace for job management, and a protected backoffice for managing employer and master accounts. The existing API also supports application review and the applicant pipeline.
+Hirzo includes a public job board with a dedicated featured-roles section, an employer hiring dashboard with jobs, applicants, and available match scores together, and a protected backoffice for managing employer and master accounts. Employers can set a reference answer for each qualification question; applicants are advised when their answers do not match before they choose whether to continue.
 
 ## Setup
 

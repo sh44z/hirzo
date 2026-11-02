@@ -25,6 +25,7 @@ const qualificationQuestionSchema = z
   .object({
     id: z.string().min(1).optional(),
     question: z.string().min(3),
+    expectedAnswer: z.string().trim().min(1).max(500),
     type: z.enum(["text", "yes_no", "multiple_choice"]),
     options: z.array(z.string().min(1)).optional(),
     required: z.boolean().optional().default(true),
@@ -142,6 +143,7 @@ export const createApplicationSchema = z.object({
     )
     .optional()
     .default([]),
+  confirmQualificationMismatch: z.boolean().optional().default(false),
   videoAnswers: z
     .array(
       z.object({

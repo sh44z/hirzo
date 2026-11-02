@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { serverError } from "@/lib/auth";
 import { Job } from "@/models/Job";
+import type { QualificationQuestion } from "@/types";
 
 /** Public list of published jobs (for candidate job board later). */
 export async function GET() {
@@ -52,7 +53,17 @@ export async function GET() {
             salaryMin: job.salaryMin,
             salaryMax: job.salaryMax,
             currency: job.currency,
-            qualificationQuestions: job.qualificationQuestions,
+            qualificationQuestions: (
+              job.qualificationQuestions as QualificationQuestion[]
+            ).map(
+              ({ id, question, type, options, required }) => ({
+                id,
+                question,
+                type,
+                options,
+                required,
+              }),
+            ),
             videoQuestions: job.videoQuestions,
             requirements: job.requirements,
             featured: job.postingPlan === "premium",

@@ -8,7 +8,7 @@ import { Application } from "@/models/Application";
 import { Employer } from "@/models/Employer";
 import { MatchResult } from "@/models/MatchResult";
 import { calculateMatchScore, extractCandidateProfile } from "@/lib/job-matching";
-import type { CandidateProfile } from "@/types";
+import type { CandidateProfile, QualificationQuestion } from "@/types";
 
 export const runtime = "nodejs";
 
@@ -93,6 +93,8 @@ export async function POST(request: NextRequest) {
         cvUrl: form.get("cvUrl") || undefined,
         qualificationAnswers,
         videoAnswers,
+        confirmQualificationMismatch:
+          String(form.get("confirmQualificationMismatch") || "") === "true",
       };
     } else {
       body = await request.json();
@@ -128,6 +130,33 @@ export async function POST(request: NextRequest) {
       if (!answer?.answer?.trim()) {
         return badRequest(`${question.question} is required.`);
       }
+    }
+
+    const normalizeAnswer = (answer: string) =>
+      answer.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+    const qualificationMismatches = (
+      job.qualificationQuestions as QualificationQuestion[]
+    )
+      .filter((question: QualificationQuestion) => {
+        const answer = parsed.data.qualificationAnswers.find(
+          (item) => item.questionId === question.id,
+        );
+        return (
+          answer?.answer.trim() &&
+          question.expectedAnswer &&
+          normalizeAnswer(answer.answer) !==
+            normalizeAnswer(question.expectedAnswer)
+        );
+      })
+      .map((question: QualificationQuestion) => question.question);
+    if (
+      qualificationMismatches.length > 0 &&
+      !parsed.data.confirmQualificationMismatch
+    ) {
+      return NextResponse.json(
+        { qualificationMismatches },
+        { status: 409 },
+      );
     }
 
     const requiredVideo = job.videoQuestions.filter(

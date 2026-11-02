@@ -4,6 +4,7 @@ import type { QualificationQuestion, VideoQuestion } from "@/types";
 type IncomingQualification = {
   id?: string;
   question: string;
+  expectedAnswer: string;
   type: QualificationQuestion["type"];
   options?: string[];
   required?: boolean;
@@ -22,6 +23,7 @@ export function normalizeQualificationQuestions(
   return questions.map((q) => ({
     id: q.id || nanoid(),
     question: q.question,
+    expectedAnswer: q.expectedAnswer,
     type: q.type,
     options: q.type === "multiple_choice" ? q.options || [] : undefined,
     required: q.required ?? true,

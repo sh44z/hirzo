@@ -138,9 +138,7 @@ export default function ApplicantsPage() {
                   <strong>
                     {!applicant.hasScannedCv
                       ? "CV not scanned"
-                      : applicant.score < 60
-                        ? "Not a good match"
-                        : `${applicant.score}% Match`}
+                      : `${applicant.score}% Match`}
                   </strong>
                 </div>
               </article>

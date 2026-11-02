@@ -33,6 +33,7 @@ type Job = {
   featured?: boolean;
   createdAt: string;
   expiresAt: string;
+  applicants: Applicant[];
 };
 
 type Applicant = {
@@ -42,6 +43,8 @@ type Applicant = {
   status: string;
   cvDownloadUrl?: string;
   createdAt: string;
+  score?: number;
+  hasScannedCv: boolean;
 };
 
 const typeLabels: Record<string, string> = {
@@ -82,11 +85,8 @@ export default function WorkspacePage() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState("");
   const [deletingJobId, setDeletingJobId] = useState("");
-  const [qualificationQuestions, setQualificationQuestions] = useState<Array<{ question: string; required: boolean }>>([]);
+  const [qualificationQuestions, setQualificationQuestions] = useState<Array<{ question: string; expectedAnswer: string; required: boolean }>>([]);
   const [selectedPlan, setSelectedPlan] = useState<JobPostingPlan>("basic");
-  const [applicants, setApplicants] = useState<Applicant[]>([]);
-  const [applicantJob, setApplicantJob] = useState<Job | null>(null);
-  const [loadingApplicants, setLoadingApplicants] = useState(false);
   const [updatingApplicant, setUpdatingApplicant] = useState("");
   const [paymentNotice, setPaymentNotice] = useState("");
   const [pendingPayPalOrder, setPendingPayPalOrder] = useState("");
@@ -248,12 +248,13 @@ export default function WorkspacePage() {
         ? { salaryMax: Number(form.get("salaryMax")) }
         : {}),
       qualificationQuestions: qualificationQuestions
-        .map(({ question, required }) => ({
+        .map(({ question, expectedAnswer, required }) => ({
           question: question.trim(),
+          expectedAnswer: expectedAnswer.trim(),
           type: "text",
           required,
         }))
-        .filter((question) => question.question),
+        .filter((question) => question.question && question.expectedAnswer),
       requirements: {
         skills: String(form.get("skills") || "")
           .split(/\n|,/)
@@ -387,7 +388,9 @@ export default function WorkspacePage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not save job changes.");
       setJobs((current) =>
-        current.map((job) => (job.id === editingJob.id ? data.job : job)),
+        current.map((job) =>
+          job.id === editingJob.id ? { ...job, ...data.job } : job,
+        ),
       );
       setPaymentNotice(`“${data.job.title}” has been updated.`);
       setEditingJob(null);
@@ -429,29 +432,6 @@ export default function WorkspacePage() {
     }
   }
 
-  async function openApplicants(job: Job) {
-    setApplicantJob(job);
-    setApplicants([]);
-    setLoadingApplicants(true);
-    setError("");
-    try {
-      const response = await fetch(
-        `/api/employers/jobs/${job.id}/applications`,
-      );
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Could not load applicants.");
-      setApplicants(data.applications);
-    } catch (applicantError) {
-      setError(
-        applicantError instanceof Error
-          ? applicantError.message
-          : "Could not load applicants.",
-      );
-    } finally {
-      setLoadingApplicants(false);
-    }
-  }
-
   async function updateApplicantStatus(applicant: Applicant, status: string) {
     setUpdatingApplicant(applicant.id);
     try {
@@ -465,10 +445,13 @@ export default function WorkspacePage() {
       );
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not update applicant.");
-      setApplicants((current) =>
-        current.map((item) =>
-          item.id === applicant.id ? { ...item, status } : item,
-        ),
+      setJobs((current) =>
+        current.map((job) => ({
+          ...job,
+          applicants: job.applicants.map((item) =>
+            item.id === applicant.id ? { ...item, status } : item,
+          ),
+        })),
       );
     } catch (applicantError) {
       setError(
@@ -647,12 +630,9 @@ export default function WorkspacePage() {
         <Link className="brand" href="/">
           <Image src="/hirzologo.jpg" alt="Hirzo" width={90} height={52} unoptimized className="brand-logo" />
         </Link>
-        <div className="sidebar-label">WORKSPACE</div>
+        <div className="sidebar-label">DASHBOARD</div>
         <a className="side-link active">
-          <span>▦</span> Overview
-        </a>
-        <a className="side-link" href="#job-list">
-          <span>▤</span> Job postings
+          <span>▦</span> Hiring dashboard
         </a>
         <div className="sidebar-bottom">
           <div className="avatar">
@@ -686,7 +666,7 @@ export default function WorkspacePage() {
           <div>
             <span className="breadcrumb">Workspace</span>
             <span className="breadcrumb-sep">/</span>
-            <strong>Overview</strong>
+            <strong>Hiring dashboard</strong>
           </div>
           <div className="topbar-actions">
             <Link href="/" className="text-link">
@@ -733,9 +713,14 @@ export default function WorkspacePage() {
               <small>Visible to candidates</small>
             </div>
             <div className="metric-card">
-              <span>Drafts</span>
-              <strong>{(jobs.length - publishedCount).toString().padStart(2, "0")}</strong>
-              <small>Ready when you are</small>
+              <span>Applicants</span>
+              <strong>
+                {jobs
+                  .reduce((count, job) => count + job.applicants.length, 0)
+                  .toString()
+                  .padStart(2, "0")}
+              </strong>
+              <small>Across all your roles</small>
             </div>
           </div>
           <section className="job-management" id="job-list">
@@ -766,91 +751,160 @@ export default function WorkspacePage() {
             ) : (
               <div className="managed-jobs">
                 {jobs.map((job) => (
-                  <article className="managed-job" key={job.id}>
-                    {employer.companyLogo ? (
-                      <Image
-                        className="job-company-logo"
-                        src={employer.companyLogo}
-                        alt={`${employer.companyName} logo`}
-                        width={39}
-                        height={39}
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="company-monogram">
-                        {employer.companyName.slice(0, 1).toUpperCase()}
+                  <article className="dashboard-job" key={job.id}>
+                    <div className="dashboard-job-heading">
+                      {employer.companyLogo ? (
+                        <Image
+                          className="job-company-logo"
+                          src={employer.companyLogo}
+                          alt={`${employer.companyName} logo`}
+                          width={39}
+                          height={39}
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="company-monogram">
+                          {employer.companyName.slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="managed-job-main">
+                        <h3>{job.title}</h3>
+                        <div className="job-meta">
+                          <span>{job.location}</span>
+                          <i>·</i>
+                          <span>
+                            {typeLabels[job.employmentType] || job.employmentType}
+                          </span>
+                          {job.postingPlan && (
+                            <>
+                              <i>·</i>
+                              <span>
+                                {JOB_POSTING_PLANS[job.postingPlan].name} (£
+                                {job.postingPrice})
+                              </span>
+                            </>
+                          )}
+                          {job.featured && <span className="featured-job-label">Featured</span>}
+                          <i>·</i>
+                          <span>Expires {new Date(job.expiresAt).toLocaleDateString()}</span>
+                        </div>
                       </div>
-                    )}
-                    <div className="managed-job-main">
-                      <h3>{job.title}</h3>
-                      <div className="job-meta">
-                        <span>{job.location}</span>
-                        <i>·</i>
-                        <span>
-                          {typeLabels[job.employmentType] || job.employmentType}
-                        </span>
-                        {job.postingPlan && (
-                          <>
-                            <i>·</i>
-                            <span>
-                              {JOB_POSTING_PLANS[job.postingPlan].name} (£
-                              {job.postingPrice})
-                            </span>
-                          </>
-                        )}
-                        {job.featured && <span className="featured-job-label">Featured</span>}
-                        <i>·</i>
-                        <span>Expires {new Date(job.expiresAt).toLocaleDateString()}</span>
-                      </div>
+                      <span className={`status-pill ${job.status}`}>
+                        {job.status}
+                      </span>
                     </div>
-                    <span className={`status-pill ${job.status}`}>
-                      {job.status}
-                    </span>
-                    <button
-                      className="button button-light small-button"
-                      onClick={() => void openApplicants(job)}
-                    >
-                      Applicants
-                    </button>
-                    {job.postingPlan === "premium" && (
-                      <Link
+                    <div className="dashboard-job-actions">
+                      <button
                         className="button button-light small-button"
-                        href={`/employer/jobs/${job.id}/applicants`}
+                        onClick={() => void updateJobStatus(job)}
                       >
-                        Applicant matches
-                      </Link>
-                    )}
-                    <button
-                      className="button button-light small-button"
-                      onClick={() => void updateJobStatus(job)}
-                    >
-                      {job.status === "published" ? "Unpublish" : "Publish"}
-                    </button>
-                    <button
-                      className="button button-light small-button"
-                      onClick={() => {
-                        setEditError("");
-                        setEditingJob(job);
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="button button-light small-button"
-                      disabled={deletingJobId === job.id}
-                      onClick={() => void deleteJob(job)}
-                    >
-                      {deletingJobId === job.id ? "Deleting…" : "Delete"}
-                    </button>
-                    <button
-                      className="button button-light small-button"
-                      disabled={renewingJobId === job.id}
-                      onClick={() => void renewJob(job)}
-                    >
-                      {renewingJobId === job.id
-                        ? "Opening checkout…"
-                        : `Renew · £${getJobPostingPrice(job.postingPlan || "basic", employer.jobPostingDiscountPercent)}`}
-                    </button>
+                        {job.status === "published" ? "Unpublish" : "Publish"}
+                      </button>
+                      <button
+                        className="button button-light small-button"
+                        onClick={() => {
+                          setEditError("");
+                          setEditingJob(job);
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="button button-light small-button"
+                        disabled={deletingJobId === job.id}
+                        onClick={() => void deleteJob(job)}
+                      >
+                        {deletingJobId === job.id ? "Deleting…" : "Delete"}
+                      </button>
+                      <button
+                        className="button button-light small-button"
+                        disabled={renewingJobId === job.id}
+                        onClick={() => void renewJob(job)}
+                      >
+                        {renewingJobId === job.id
+                          ? "Opening checkout…"
+                          : `Renew · £${getJobPostingPrice(job.postingPlan || "basic", employer.jobPostingDiscountPercent)}`}
+                      </button>
+                    </div>
+                    <section className="job-applicants">
+                      <div className="job-applicants-heading">
+                        <h4>Applicants <span>{job.applicants.length}</span></h4>
+                        {job.postingPlan === "premium" && (
+                          <small>CV match scores</small>
+                        )}
+                      </div>
+                      {job.applicants.length === 0 ? (
+                        <p className="field-hint">No applicants yet for this role.</p>
+                      ) : (
+                        <div className="applicant-list">
+                          {job.applicants.map((applicant) => (
+                            <article className="applicant-row" key={applicant.id}>
+                              <div>
+                                <strong>{applicant.candidateName}</strong>
+                                <a href={`mailto:${applicant.candidateEmail}`}>
+                                  {applicant.candidateEmail}
+                                </a>
+                                <span className={`status-pill ${applicant.status}`}>
+                                  {applicant.status}
+                                </span>
+                                {applicant.cvDownloadUrl && (
+                                  <a href={applicant.cvDownloadUrl}>Download CV</a>
+                                )}
+                              </div>
+                              <div className="applicant-match-score">
+                                {job.postingPlan === "premium" ? (
+                                  applicant.score === undefined ? (
+                                    <span>CV not scanned</span>
+                                  ) : (
+                                    <>
+                                      <strong>{applicant.score}%</strong>
+                                      <span>Match score</span>
+                                    </>
+                                  )
+                                ) : (
+                                  <span>Premium match scores</span>
+                                )}
+                              </div>
+                              <div className="applicant-actions">
+                                {applicant.status === "applied" && (
+                                  <button
+                                    className="button button-light small-button"
+                                    disabled={updatingApplicant === applicant.id}
+                                    onClick={() =>
+                                      void updateApplicantStatus(applicant, "shortlisted")
+                                    }
+                                  >
+                                    Shortlist
+                                  </button>
+                                )}
+                                {applicant.status === "shortlisted" && (
+                                  <>
+                                    <button
+                                      className="button button-light small-button"
+                                      disabled={updatingApplicant === applicant.id}
+                                      onClick={() =>
+                                        void updateApplicantStatus(applicant, "applied")
+                                      }
+                                    >
+                                      Remove shortlist
+                                    </button>
+                                    <button
+                                      className="button button-dark small-button"
+                                      disabled={updatingApplicant === applicant.id}
+                                      onClick={() =>
+                                        void updateApplicantStatus(applicant, "hired")
+                                      }
+                                    >
+                                      Hire
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+                    </section>
                   </article>
                 ))}
               </div>
@@ -1039,34 +1093,54 @@ export default function WorkspacePage() {
                           : "Give an example of when you overcame an objection."
                       }
                     />
-                    <label className="question-required-toggle">
+                    <label className="qualification-expected-answer">
+                      Employer&apos;s expected answer
                       <input
-                        type="checkbox"
-                        checked={question.required}
+                        required
+                        maxLength={500}
+                        value={question.expectedAnswer}
                         onChange={(event) =>
                           setQualificationQuestions((current) =>
                             current.map((item, itemIndex) =>
                               itemIndex === index
-                                ? { ...item, required: event.target.checked }
+                                ? { ...item, expectedAnswer: event.target.value }
                                 : item,
                             ),
                           )
                         }
+                        placeholder="e.g. Yes"
                       />
-                      Required
                     </label>
-                    <button
-                      type="button"
-                      className="button button-light remove-question"
-                      aria-label={`Remove question ${index + 1}`}
-                      onClick={() =>
-                        setQualificationQuestions((current) =>
-                          current.filter((_, itemIndex) => itemIndex !== index),
-                        )
-                      }
-                    >
-                      Remove
-                    </button>
+                    <div className="qualification-question-actions">
+                      <label className="question-required-toggle">
+                        <input
+                          type="checkbox"
+                          checked={question.required}
+                          onChange={(event) =>
+                            setQualificationQuestions((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index
+                                  ? { ...item, required: event.target.checked }
+                                  : item,
+                              ),
+                            )
+                          }
+                        />
+                        Required
+                      </label>
+                      <button
+                        type="button"
+                        className="button button-light remove-question"
+                        aria-label={`Remove question ${index + 1}`}
+                        onClick={() =>
+                          setQualificationQuestions((current) =>
+                            current.filter((_, itemIndex) => itemIndex !== index),
+                          )
+                        }
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 ))}
                 <button
@@ -1075,7 +1149,7 @@ export default function WorkspacePage() {
                   onClick={() =>
                     setQualificationQuestions((current) => [
                       ...current,
-                      { question: "", required: true },
+                      { question: "", expectedAnswer: "", required: true },
                     ])
                   }
                 >
@@ -1235,90 +1309,6 @@ export default function WorkspacePage() {
         </div>
       )}
 
-      {applicantJob && (
-        <div
-          className="modal-backdrop"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setApplicantJob(null);
-          }}
-        >
-          <section className="job-modal applicant-modal">
-            <div className="modal-heading">
-              <div>
-                <div className="eyebrow">APPLICANT PIPELINE</div>
-                <h2>{applicantJob.title}</h2>
-              </div>
-              <button
-                className="icon-button close-button"
-                onClick={() => setApplicantJob(null)}
-                aria-label="Close applicants"
-              >
-                ×
-              </button>
-            </div>
-            {loadingApplicants ? (
-              <p className="field-hint">Loading applicants…</p>
-            ) : applicants.length === 0 ? (
-              <p className="field-hint">No applicants yet for this role.</p>
-            ) : (
-              <div className="applicant-list">
-                {applicants.map((applicant) => (
-                  <article className="applicant-row" key={applicant.id}>
-                    <div>
-                      <strong>{applicant.candidateName}</strong>
-                      <a href={`mailto:${applicant.candidateEmail}`}>
-                        {applicant.candidateEmail}
-                      </a>
-                      <span className={`status-pill ${applicant.status}`}>
-                        {applicant.status}
-                      </span>
-                      {applicant.cvDownloadUrl && (
-                        <a href={applicant.cvDownloadUrl}>Download CV</a>
-                      )}
-                    </div>
-                    <div className="applicant-actions">
-                      {applicant.status === "applied" && (
-                        <button
-                          className="button button-light small-button"
-                          disabled={updatingApplicant === applicant.id}
-                          onClick={() =>
-                            void updateApplicantStatus(applicant, "shortlisted")
-                          }
-                        >
-                          Shortlist
-                        </button>
-                      )}
-                      {applicant.status === "shortlisted" && (
-                        <>
-                          <button
-                            className="button button-light small-button"
-                            disabled={updatingApplicant === applicant.id}
-                            onClick={() =>
-                              void updateApplicantStatus(applicant, "applied")
-                            }
-                          >
-                            Remove shortlist
-                          </button>
-                          <button
-                            className="button button-dark small-button"
-                            disabled={updatingApplicant === applicant.id}
-                            onClick={() =>
-                              void updateApplicantStatus(applicant, "hired")
-                            }
-                          >
-                            Hire
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-            {error && <p className="form-error">{error}</p>}
-          </section>
-        </div>
-      )}
     </main>
   );
 }

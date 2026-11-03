@@ -123,7 +123,14 @@ export const updateJobSchema = createJobSchema.partial().extend({
 });
 
 export const updateApplicationStatusSchema = z.object({
-  status: z.enum(["applied", "shortlisted", "interview", "hired", "rejected"]),
+  status: z.enum([
+    "applied",
+    "shortlisted",
+    "interview",
+    "offer_extended",
+    "hired",
+    "rejected",
+  ]),
   notes: z.string().max(2000).optional(),
 });
 

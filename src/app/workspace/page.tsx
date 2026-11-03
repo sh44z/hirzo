@@ -8,6 +8,7 @@ import {
   JOB_POSTING_PLANS,
   type JobPostingPlan,
 } from "@/lib/job-posting-plans";
+import type { ApplicationStatus } from "@/types";
 
 type Employer = {
   id: string;
@@ -40,12 +41,61 @@ type Applicant = {
   id: string;
   candidateName: string;
   candidateEmail: string;
-  status: string;
+  status: ApplicationStatus;
   cvDownloadUrl?: string;
   createdAt: string;
   score?: number;
   hasScannedCv: boolean;
 };
+
+type ApplicantFilter = "all" | "shortlisted" | "interview";
+type ApplicantSort = "date" | "score" | "name";
+type ContactDraft = {
+  applicant: Applicant;
+  jobTitle: string;
+  mode: "message" | "interview";
+};
+
+const applicationStages: Array<{ value: ApplicationStatus; label: string }> = [
+  { value: "applied", label: "Applied" },
+  { value: "shortlisted", label: "Shortlisted" },
+  { value: "interview", label: "Interviewing" },
+  { value: "offer_extended", label: "Offer extended" },
+  { value: "hired", label: "Hired" },
+  { value: "rejected", label: "Rejected" },
+];
+
+const applicationStatusLabels = Object.fromEntries(
+  applicationStages.map(({ value, label }) => [value, label]),
+) as Record<ApplicationStatus, string>;
+
+function getVisibleApplicants(
+  applicants: Applicant[],
+  filter: ApplicantFilter,
+  sort: ApplicantSort,
+) {
+  const visible = applicants.filter((applicant) => {
+    if (filter === "shortlisted") return applicant.status === "shortlisted";
+    if (filter === "interview") return applicant.status === "interview";
+    return true;
+  });
+
+  return visible.sort((a, b) => {
+    if (sort === "name") return a.candidateName.localeCompare(b.candidateName);
+    if (sort === "score") {
+      if (a.score === undefined) return b.score === undefined ? 0 : 1;
+      if (b.score === undefined) return -1;
+      return b.score - a.score;
+    }
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+}
+
+function matchScoreTone(score: number) {
+  if (score >= 80) return "strong";
+  if (score >= 50) return "moderate";
+  return "low";
+}
 
 const typeLabels: Record<string, string> = {
   full_time: "Full time",
@@ -88,6 +138,14 @@ export default function WorkspacePage() {
   const [qualificationQuestions, setQualificationQuestions] = useState<Array<{ question: string; expectedAnswer: string; required: boolean }>>([]);
   const [selectedPlan, setSelectedPlan] = useState<JobPostingPlan>("basic");
   const [updatingApplicant, setUpdatingApplicant] = useState("");
+  const [applicantFilters, setApplicantFilters] = useState<
+    Record<string, ApplicantFilter>
+  >({});
+  const [applicantSorts, setApplicantSorts] = useState<
+    Record<string, ApplicantSort>
+  >({});
+  const [contactDraft, setContactDraft] = useState<ContactDraft | null>(null);
+  const [copiedJobId, setCopiedJobId] = useState("");
   const [paymentNotice, setPaymentNotice] = useState("");
   const [pendingPayPalOrder, setPendingPayPalOrder] = useState("");
   const [capturingPayment, setCapturingPayment] = useState(false);
@@ -432,7 +490,10 @@ export default function WorkspacePage() {
     }
   }
 
-  async function updateApplicantStatus(applicant: Applicant, status: string) {
+  async function updateApplicantStatus(
+    applicant: Applicant,
+    status: ApplicationStatus,
+  ) {
     setUpdatingApplicant(applicant.id);
     try {
       const response = await fetch(
@@ -462,6 +523,44 @@ export default function WorkspacePage() {
     } finally {
       setUpdatingApplicant("");
     }
+  }
+
+  async function copyJobLink(job: Job) {
+    try {
+      const link = new URL("/", window.location.origin);
+      link.searchParams.set("job", job.id);
+      link.hash = "opportunities";
+      await navigator.clipboard.writeText(link.toString());
+      setCopiedJobId(job.id);
+      window.setTimeout(
+        () => setCopiedJobId((current) => (current === job.id ? "" : current)),
+        2200,
+      );
+    } catch (copyError) {
+      setError(
+        copyError instanceof Error
+          ? `Could not copy the job link: ${copyError.message}`
+          : "Could not copy the job link.",
+      );
+    }
+  }
+
+  function submitContact(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!contactDraft) return;
+
+    const form = new FormData(event.currentTarget);
+    const subject = String(form.get("subject") || "").trim();
+    const message = String(form.get("message") || "").trim();
+    const scheduledAt = String(form.get("scheduledAt") || "");
+    const location = String(form.get("interviewLocation") || "").trim();
+    const body =
+      contactDraft.mode === "interview"
+        ? `Hi ${contactDraft.applicant.candidateName},\n\nWe'd like to invite you to interview for ${contactDraft.jobTitle}.\n\nProposed time: ${new Date(scheduledAt).toLocaleString("en-GB")}\n${location ? `Location or meeting link: ${location}\n` : ""}\n${message}\n\nBest regards`
+        : `Hi ${contactDraft.applicant.candidateName},\n\n${message}\n\nBest regards`;
+    const mailto = `mailto:${contactDraft.applicant.candidateEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailto;
+    setContactDraft(null);
   }
 
   async function logout() {
@@ -623,6 +722,16 @@ export default function WorkspacePage() {
   }
 
   const publishedCount = jobs.filter((job) => job.status === "published").length;
+  const visibleApplicantsByJobId = new Map(
+    jobs.map((job) => [
+      job.id,
+      getVisibleApplicants(
+        job.applicants,
+        applicantFilters[job.id] || "all",
+        applicantSorts[job.id] || "date",
+      ),
+    ]),
+  );
 
   return (
     <main className="workspace-shell">
@@ -635,30 +744,51 @@ export default function WorkspacePage() {
           <span>▦</span> Hiring dashboard
         </a>
         <div className="sidebar-bottom">
-          <div className="avatar">
-            {employer.companyLogo ? (
-              <Image
-                src={employer.companyLogo}
-                alt={`${employer.companyName} logo`}
-                width={36}
-                height={36}
-                unoptimized
-              />
-            ) : (
-              employer.companyName.slice(0, 1).toUpperCase()
-            )}
-          </div>
-          <div className="user-label">
-            <strong>{employer.companyName}</strong>
-            <span>{employer.email}</span>
-          </div>
-          <button
-            className="icon-button"
-            aria-label="Sign out"
-            onClick={logout}
-          >
-            ↗
-          </button>
+          <details className="workspace-switcher">
+            <summary className="workspace-switcher-trigger">
+              <span className="avatar">
+                {employer.companyLogo ? (
+                  <Image
+                    src={employer.companyLogo}
+                    alt=""
+                    width={36}
+                    height={36}
+                    unoptimized
+                  />
+                ) : (
+                  employer.companyName.slice(0, 1).toUpperCase()
+                )}
+              </span>
+              <span className="user-label">
+                <strong>{employer.companyName}</strong>
+                <span>Company workspace</span>
+              </span>
+              <span className="workspace-switcher-chevron" aria-hidden="true">
+                ⌃
+              </span>
+            </summary>
+            <div className="workspace-switcher-menu">
+              <div className="workspace-switcher-label">ACTIVE WORKSPACE</div>
+              <div className="workspace-switcher-current">
+                <span className="workspace-switcher-monogram">
+                  {employer.companyName.slice(0, 1).toUpperCase()}
+                </span>
+                <span>
+                  <strong>{employer.companyName}</strong>
+                  <small>{employer.email}</small>
+                </span>
+                <span className="workspace-switcher-check" aria-label="Selected">
+                  ✓
+                </span>
+              </div>
+              <button
+                className="workspace-switcher-signout"
+                onClick={logout}
+              >
+                Sign out
+              </button>
+            </div>
+          </details>
         </div>
       </aside>
       <section className="workspace-content">
@@ -834,18 +964,82 @@ export default function WorkspacePage() {
                         )}
                       </div>
                       {job.applicants.length === 0 ? (
-                        <p className="field-hint">No applicants yet for this role.</p>
+                        <div className="applicant-empty-state">
+                          <span className="empty-icon">✳</span>
+                          <div>
+                            <strong>No applicants yet</strong>
+                            <p>Share this job link to attract top talent.</p>
+                          </div>
+                          {job.status === "published" ? (
+                            <button
+                              className="button button-light small-button"
+                              onClick={() => void copyJobLink(job)}
+                            >
+                              {copiedJobId === job.id
+                                ? "Link copied"
+                                : "Copy job link"}
+                            </button>
+                          ) : (
+                            <span className="field-hint">
+                              Publish this role to share it.
+                            </span>
+                          )}
+                        </div>
                       ) : (
-                        <div className="applicant-list">
-                          {job.applicants.map((applicant) => (
+                        <>
+                          <div className="applicant-toolbar">
+                            <label>
+                              Filter
+                              <select
+                                aria-label={`Filter applicants for ${job.title}`}
+                                value={applicantFilters[job.id] || "all"}
+                                onChange={(event) =>
+                                  setApplicantFilters((current) => ({
+                                    ...current,
+                                    [job.id]: event.target.value as ApplicantFilter,
+                                  }))
+                                }
+                              >
+                                <option value="all">All applicants</option>
+                                <option value="shortlisted">Shortlisted</option>
+                                <option value="interview">Interviewed</option>
+                              </select>
+                            </label>
+                            <label>
+                              Sort by
+                              <select
+                                aria-label={`Sort applicants for ${job.title}`}
+                                value={applicantSorts[job.id] || "date"}
+                                onChange={(event) =>
+                                  setApplicantSorts((current) => ({
+                                    ...current,
+                                    [job.id]: event.target.value as ApplicantSort,
+                                  }))
+                                }
+                              >
+                                <option value="date">Date applied</option>
+                                <option value="score">Match score</option>
+                                <option value="name">Name</option>
+                              </select>
+                            </label>
+                          </div>
+                          {visibleApplicantsByJobId.get(job.id)?.length === 0 ? (
+                            <p className="applicant-filter-empty">
+                              No applicants match this filter.
+                            </p>
+                          ) : (
+                            <div className="applicant-list">
+                              {visibleApplicantsByJobId
+                                .get(job.id)
+                                ?.map((applicant) => (
                             <article className="applicant-row" key={applicant.id}>
                               <div>
                                 <strong>{applicant.candidateName}</strong>
-                                <a href={`mailto:${applicant.candidateEmail}`}>
-                                  {applicant.candidateEmail}
-                                </a>
-                                <span className={`status-pill ${applicant.status}`}>
-                                  {applicant.status}
+                                <span className={`status-pill applicant-status ${applicant.status}`}>
+                                  {applicationStatusLabels[applicant.status]}
+                                </span>
+                                <span className="applicant-applied-date">
+                                  Applied {new Date(applicant.createdAt).toLocaleDateString("en-GB")}
                                 </span>
                                 {applicant.cvDownloadUrl && (
                                   <a href={applicant.cvDownloadUrl}>Download CV</a>
@@ -856,53 +1050,79 @@ export default function WorkspacePage() {
                                   applicant.score === undefined ? (
                                     <span>CV not scanned</span>
                                   ) : (
-                                    <>
-                                      <strong>{applicant.score}%</strong>
-                                      <span>Match score</span>
-                                    </>
+                                    <span
+                                      className={`match-score-badge ${matchScoreTone(applicant.score)}`}
+                                    >
+                                      {applicant.score}% match
+                                    </span>
                                   )
                                 ) : (
                                   <span>Premium match scores</span>
                                 )}
                               </div>
                               <div className="applicant-actions">
-                                {applicant.status === "applied" && (
-                                  <button
-                                    className="button button-light small-button"
+                                <label className="stage-select-label">
+                                  <span className="sr-only">Pipeline stage</span>
+                                  <select
+                                    aria-label={`Move ${applicant.candidateName} to a pipeline stage`}
+                                    value={applicant.status}
                                     disabled={updatingApplicant === applicant.id}
-                                    onClick={() =>
-                                      void updateApplicantStatus(applicant, "shortlisted")
+                                    onChange={(event) =>
+                                      void updateApplicantStatus(
+                                        applicant,
+                                        event.target.value as ApplicationStatus,
+                                      )
                                     }
                                   >
-                                    Shortlist
-                                  </button>
-                                )}
-                                {applicant.status === "shortlisted" && (
-                                  <>
-                                    <button
-                                      className="button button-light small-button"
-                                      disabled={updatingApplicant === applicant.id}
-                                      onClick={() =>
-                                        void updateApplicantStatus(applicant, "applied")
-                                      }
-                                    >
-                                      Remove shortlist
-                                    </button>
-                                    <button
-                                      className="button button-dark small-button"
-                                      disabled={updatingApplicant === applicant.id}
-                                      onClick={() =>
-                                        void updateApplicantStatus(applicant, "hired")
-                                      }
-                                    >
-                                      Hire
-                                    </button>
-                                  </>
-                                )}
+                                    {applicationStages.map((stage) => (
+                                      <option
+                                        key={stage.value}
+                                        value={stage.value}
+                                        disabled={
+                                          stage.value === "interview" &&
+                                          job.postingPlan === "basic"
+                                        }
+                                      >
+                                        {stage.label}
+                                        {stage.value === "interview" &&
+                                        job.postingPlan === "basic"
+                                          ? " (Premium)"
+                                          : ""}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <button
+                                  className="button button-light small-button"
+                                  disabled={updatingApplicant === applicant.id}
+                                  onClick={() =>
+                                    setContactDraft({
+                                      applicant,
+                                      jobTitle: job.title,
+                                      mode: "message",
+                                    })
+                                  }
+                                >
+                                  Email
+                                </button>
+                                <button
+                                  className="button button-light small-button"
+                                  onClick={() =>
+                                    setContactDraft({
+                                      applicant,
+                                      jobTitle: job.title,
+                                      mode: "interview",
+                                    })
+                                  }
+                                >
+                                  Schedule
+                                </button>
                               </div>
                             </article>
-                          ))}
-                        </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
                       )}
                     </section>
                   </article>
@@ -1302,6 +1522,105 @@ export default function WorkspacePage() {
                   disabled={savingEdit}
                 >
                   {savingEdit ? "Saving…" : "Save changes"} <span>→</span>
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {contactDraft && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setContactDraft(null);
+          }}
+        >
+          <section
+            className="job-modal contact-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="contact-modal-title"
+          >
+            <div className="modal-heading">
+              <div>
+                <div className="eyebrow">
+                  {contactDraft.mode === "interview"
+                    ? "INTERVIEW INVITATION"
+                    : "CANDIDATE MESSAGE"}
+                </div>
+                <h2 id="contact-modal-title">
+                  {contactDraft.mode === "interview"
+                    ? "Schedule an interview"
+                    : `Email ${contactDraft.applicant.candidateName}`}
+                </h2>
+              </div>
+              <button
+                className="icon-button close-button"
+                aria-label="Close"
+                onClick={() => setContactDraft(null)}
+              >
+                ×
+              </button>
+            </div>
+            <p className="muted contact-modal-copy">
+              A draft will open in your email app addressed to{" "}
+              <strong>{contactDraft.applicant.candidateEmail}</strong>. You can
+              review and send it there.
+            </p>
+            <form className="form-stack modal-form" onSubmit={submitContact}>
+              <label>
+                Subject
+                <input
+                  name="subject"
+                  required
+                  defaultValue={
+                    contactDraft.mode === "interview"
+                      ? `Interview invitation: ${contactDraft.jobTitle}`
+                      : `Regarding your application for ${contactDraft.jobTitle}`
+                  }
+                />
+              </label>
+              {contactDraft.mode === "interview" && (
+                <>
+                  <label>
+                    Proposed date and time
+                    <input name="scheduledAt" type="datetime-local" required />
+                  </label>
+                  <label>
+                    Location or meeting link
+                    <input
+                      name="interviewLocation"
+                      placeholder="Office address or video-call link"
+                    />
+                  </label>
+                </>
+              )}
+              <label>
+                {contactDraft.mode === "interview"
+                  ? "Additional details"
+                  : "Message"}
+                <textarea
+                  name="message"
+                  rows={5}
+                  required={contactDraft.mode === "message"}
+                  placeholder={
+                    contactDraft.mode === "interview"
+                      ? "Share any preparation details or interview agenda."
+                      : "Write your message to the candidate."
+                  }
+                />
+              </label>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="button button-light"
+                  onClick={() => setContactDraft(null)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="button button-dark">
+                  Continue in email <span>→</span>
                 </button>
               </div>
             </form>

@@ -43,9 +43,14 @@ export async function GET(request: NextRequest, { params }: Params) {
 
     if (
       status &&
-      ["applied", "shortlisted", "interview", "hired", "rejected"].includes(
-        status,
-      )
+      [
+        "applied",
+        "shortlisted",
+        "interview",
+        "offer_extended",
+        "hired",
+        "rejected",
+      ].includes(status)
     ) {
       filter.status = status;
     }

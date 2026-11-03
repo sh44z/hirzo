@@ -92,7 +92,14 @@ const ApplicationSchema = new Schema<IApplication>(
     },
     status: {
       type: String,
-      enum: ["applied", "shortlisted", "interview", "hired", "rejected"],
+      enum: [
+        "applied",
+        "shortlisted",
+        "interview",
+        "offer_extended",
+        "hired",
+        "rejected",
+      ],
       default: "applied",
       index: true,
     },

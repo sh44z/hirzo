@@ -21,6 +21,12 @@ type MatchResultsResponse = {
   matchResults: MatchResult[];
 };
 
+function matchScoreTone(score: number) {
+  if (score >= 80) return "strong";
+  if (score >= 50) return "moderate";
+  return "low";
+}
+
 export default function ApplicantsPage() {
   const { jobId } = useParams<{ jobId: string }>();
   const [data, setData] = useState<MatchResultsResponse | null>(null);
@@ -140,6 +146,17 @@ export default function ApplicantsPage() {
                       ? "CV not scanned"
                       : `${applicant.score}% Match`}
                   </strong>
+                  {applicant.hasScannedCv && (
+                    <span
+                      className={`match-score-badge ${matchScoreTone(applicant.score)}`}
+                    >
+                      {applicant.score >= 80
+                        ? "Strong match"
+                        : applicant.score >= 50
+                          ? "Good match"
+                          : "Low match"}
+                    </span>
+                  )}
                 </div>
               </article>
             ))}

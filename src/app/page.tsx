@@ -138,7 +138,23 @@ export default function Home() {
       .then((response) =>
         response.ok ? response.json() : Promise.reject(new Error("Could not load jobs.")),
       )
-      .then((data) => setJobs(data.jobs || []))
+      .then((data) => {
+        const availableJobs: Job[] = data.jobs || [];
+        setJobs(availableJobs);
+
+        const sharedJobId = new URLSearchParams(window.location.search).get(
+          "job",
+        );
+        const sharedJob = availableJobs.find((job) => job.id === sharedJobId);
+        if (sharedJob) {
+          setSelected(sharedJob);
+          window.history.replaceState(
+            {},
+            "",
+            `${window.location.pathname}${window.location.hash}`,
+          );
+        }
+      })
       .catch(() => setJobs([]))
       .finally(() => setLoading(false));
   }, []);

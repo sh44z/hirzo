@@ -27,6 +27,9 @@ export async function GET() {
         id: employer._id.toString(),
         email: employer.email,
         companyName: employer.companyName,
+        companyDescription: employer.companyDescription || "",
+        companyCulture: employer.companyCulture || "",
+        companyBenefits: employer.companyBenefits || [],
         companyLogo: employer.companyLogo
           ? `/api/employers/${employer._id.toString()}/logo`
           : undefined,

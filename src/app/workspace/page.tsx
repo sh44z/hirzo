@@ -15,6 +15,9 @@ type Employer = {
   email: string;
   companyName: string;
   companyLogo?: string;
+  companyDescription?: string;
+  companyCulture?: string;
+  companyBenefits?: string[];
   contactName: string;
   jobPostingDiscountPercent: number;
 };
@@ -25,6 +28,8 @@ type Job = {
   description: string;
   location: string;
   employmentType: string;
+  workplaceType?: string;
+  department?: string;
   salaryMin?: number;
   salaryMax?: number;
   currency: string;
@@ -133,6 +138,8 @@ export default function WorkspacePage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [savingCompanyProfile, setSavingCompanyProfile] = useState(false);
+  const [companyProfileNotice, setCompanyProfileNotice] = useState("");
   const [editError, setEditError] = useState("");
   const [deletingJobId, setDeletingJobId] = useState("");
   const [qualificationQuestions, setQualificationQuestions] = useState<Array<{ question: string; expectedAnswer: string; required: boolean }>>([]);
@@ -297,6 +304,8 @@ export default function WorkspacePage() {
       description: String(form.get("description")),
       location: String(form.get("location")),
       employmentType: String(form.get("employmentType")),
+      workplaceType: String(form.get("workplaceType")),
+      department: String(form.get("department")),
       currency: "GBP",
       status: String(form.get("status")),
       ...(form.get("salaryMin")
@@ -433,6 +442,8 @@ export default function WorkspacePage() {
       description: String(form.get("description")),
       location: String(form.get("location")),
       employmentType: String(form.get("employmentType")),
+      workplaceType: String(form.get("workplaceType")),
+      department: String(form.get("department")),
       salaryMin: salaryMin ? Number(salaryMin) : null,
       salaryMax: salaryMax ? Number(salaryMax) : null,
       status: String(form.get("status")),
@@ -462,6 +473,44 @@ export default function WorkspacePage() {
       );
     } finally {
       setSavingEdit(false);
+    }
+  }
+
+  async function saveCompanyProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSavingCompanyProfile(true);
+    setCompanyProfileNotice("");
+    const form = new FormData(event.currentTarget);
+    const payload = {
+      companyDescription: String(form.get("companyDescription") || ""),
+      companyCulture: String(form.get("companyCulture") || ""),
+      companyBenefits: String(form.get("companyBenefits") || "")
+        .split(/\n|,/)
+        .map((benefit) => benefit.trim())
+        .filter(Boolean),
+    };
+    try {
+      const response = await fetch("/api/employers/company-profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Could not save your company profile.");
+      }
+      setEmployer((current) =>
+        current ? { ...current, ...data.profile } : current,
+      );
+      setCompanyProfileNotice("Your public company profile has been updated.");
+    } catch (profileError) {
+      setError(
+        profileError instanceof Error
+          ? profileError.message
+          : "Could not save your company profile.",
+      );
+    } finally {
+      setSavingCompanyProfile(false);
     }
   }
 
@@ -1142,6 +1191,61 @@ export default function WorkspacePage() {
               Browse the board ↗
             </Link>
           </div>
+          <details className="company-profile-editor">
+            <summary>
+              <span>
+                <strong>Company profile</strong>
+                <small>Add an introduction, culture, and benefits to your public profile.</small>
+              </span>
+              <span aria-hidden="true">⌄</span>
+            </summary>
+            <form
+              className="form-stack company-profile-form"
+              onSubmit={saveCompanyProfile}
+            >
+              <label>
+                Company introduction{" "}
+                <span className="optional-label">Shown on your company page</span>
+                <textarea
+                  name="companyDescription"
+                  rows={4}
+                  maxLength={2000}
+                  defaultValue={employer.companyDescription || ""}
+                  placeholder="Tell candidates about your company, mission, and the work you do."
+                />
+              </label>
+              <label>
+                Culture and working here
+                <textarea
+                  name="companyCulture"
+                  rows={4}
+                  maxLength={2000}
+                  defaultValue={employer.companyCulture || ""}
+                  placeholder="Describe the team, working style, and what candidates can expect."
+                />
+              </label>
+              <label>
+                Benefits{" "}
+                <span className="optional-label">One per line or comma-separated · Up to 20</span>
+                <textarea
+                  name="companyBenefits"
+                  rows={3}
+                  defaultValue={(employer.companyBenefits || []).join("\n")}
+                  placeholder={"Flexible working\nLearning and development budget"}
+                />
+              </label>
+              {companyProfileNotice && (
+                <p className="profile-save-notice">{companyProfileNotice}</p>
+              )}
+              <button
+                className="button button-dark"
+                type="submit"
+                disabled={savingCompanyProfile}
+              >
+                {savingCompanyProfile ? "Saving…" : "Save company profile"}
+              </button>
+            </form>
+          </details>
         </div>
       </section>
 
@@ -1224,6 +1328,31 @@ export default function WorkspacePage() {
                     <option value="contract">Contract</option>
                     <option value="internship">Internship</option>
                     <option value="temporary">Temporary</option>
+                  </select>
+                </label>
+              </div>
+              <div className="form-row">
+                <label>
+                  Department
+                  <select name="department" defaultValue="sales">
+                    <option value="engineering">Engineering</option>
+                    <option value="sales">Sales</option>
+                    <option value="marketing">Marketing</option>
+                    <option value="design">Design</option>
+                    <option value="product">Product</option>
+                    <option value="operations">Operations</option>
+                    <option value="customer_success">Customer success</option>
+                    <option value="finance">Finance</option>
+                    <option value="hr">People &amp; HR</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <label>
+                  Workplace
+                  <select name="workplaceType" defaultValue="onsite">
+                    <option value="onsite">On-site</option>
+                    <option value="hybrid">Hybrid</option>
+                    <option value="remote">Remote</option>
                   </select>
                 </label>
               </div>
@@ -1465,6 +1594,37 @@ export default function WorkspacePage() {
                     {Object.entries(typeLabels).map(([value, label]) => (
                       <option key={value} value={value}>{label}</option>
                     ))}
+                  </select>
+                </label>
+              </div>
+              <div className="form-row">
+                <label>
+                  Department
+                  <select
+                    name="department"
+                    defaultValue={editingJob.department || "other"}
+                  >
+                    <option value="engineering">Engineering</option>
+                    <option value="sales">Sales</option>
+                    <option value="marketing">Marketing</option>
+                    <option value="design">Design</option>
+                    <option value="product">Product</option>
+                    <option value="operations">Operations</option>
+                    <option value="customer_success">Customer success</option>
+                    <option value="finance">Finance</option>
+                    <option value="hr">People &amp; HR</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <label>
+                  Workplace
+                  <select
+                    name="workplaceType"
+                    defaultValue={editingJob.workplaceType || "onsite"}
+                  >
+                    <option value="onsite">On-site</option>
+                    <option value="hybrid">Hybrid</option>
+                    <option value="remote">Remote</option>
                   </select>
                 </label>
               </div>

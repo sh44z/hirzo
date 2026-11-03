@@ -25,14 +25,43 @@ function addLine(lines: string[], line: string) {
   if (cleaned && lines.length < 100) lines.push(cleaned);
 }
 
-export async function extractCandidateProfile(
-  data: Buffer,
-): Promise<CandidateProfile> {
+async function extractDocumentText(data: Buffer) {
   const isDocx = data[0] === 0x50 && data[1] === 0x4b;
   const value = isDocx
     ? (await mammoth.extractRawText({ buffer: data })).value
     : (await new WordExtractor().extract(data)).getBody();
-  const text = value.slice(0, 100_000);
+  return value.slice(0, 100_000);
+}
+
+export async function extractCandidateContact(data: Buffer) {
+  const text = await extractDocumentText(data);
+  const email = text.match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i)?.[0];
+  const phone = text.match(/(?:\+\d{1,3}[\s().-]*)?(?:\(?\d{2,5}\)?[\s().-]*){2,5}\d{2,5}/)?.[0]
+    ?.replace(/\s+/g, " ")
+    .trim();
+  const name = text
+    .split(/\r?\n/)
+    .map((line) =>
+      line
+        .replace(/^[\s•▪◦*–—-]+/, "")
+        .split(/[|•·–—]/)[0]
+        .trim(),
+    )
+    .find(
+      (line) =>
+        /^[\p{L}][\p{L}'’.-]*(?:\s+[\p{L}][\p{L}'’.-]*){1,4}$/u.test(line) &&
+        !line.includes("@") &&
+        !sectionHeading.test(line) &&
+        !/\b(resume|curriculum vitae|cv|phone|mobile|email|linkedin|github|engineer|developer|manager|professional|specialist|director|designer|analyst|consultant|executive|experience|summary|portfolio|objective|profile)\b/i.test(line),
+    );
+
+  return { candidateName: name || "", candidateEmail: email || "", candidatePhone: phone || "" };
+}
+
+export async function extractCandidateProfile(
+  data: Buffer,
+): Promise<CandidateProfile> {
+  const text = await extractDocumentText(data);
   const profile = emptyProfile();
   let section: keyof CandidateProfile = "otherRequirements";
 

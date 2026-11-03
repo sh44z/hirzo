@@ -49,6 +49,8 @@ export async function POST(request: NextRequest) {
         description: parsed.data.description,
         location: parsed.data.location,
         employmentType: parsed.data.employmentType,
+        workplaceType: parsed.data.workplaceType,
+        department: parsed.data.department,
         salaryMin: parsed.data.salaryMin,
         salaryMax: parsed.data.salaryMax,
         currency: parsed.data.currency,

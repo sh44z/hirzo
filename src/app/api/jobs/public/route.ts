@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db";
 import { serverError } from "@/lib/auth";
 import { Job } from "@/models/Job";
 import type { QualificationQuestion } from "@/types";
+import { inferJobDepartment, inferWorkplaceType } from "@/lib/job-classification";
 
 /** Public list of published jobs (for candidate job board later). */
 export async function GET() {
@@ -14,7 +15,7 @@ export async function GET() {
       expiresAt: { $gt: new Date() },
     })
       .select(
-        "title description location employmentType salaryMin salaryMax currency qualificationQuestions videoQuestions requirements featured postingPlan createdAt expiresAt employerId",
+        "title description location employmentType workplaceType department salaryMin salaryMax currency qualificationQuestions videoQuestions requirements featured postingPlan createdAt expiresAt employerId",
       )
       .populate({
         path: "employerId",
@@ -41,6 +42,7 @@ export async function GET() {
           } | null;
           return {
             id: String(job._id),
+            companyId: String(employer?._id || ""),
             companyName: employer?.companyName || "Confidential employer",
             companyLogo:
               employer?.companyLogo && employer._id
@@ -50,6 +52,13 @@ export async function GET() {
             description: job.description,
             location: job.location,
             employmentType: job.employmentType,
+            workplaceType: inferWorkplaceType(job.workplaceType, job.location),
+            department: inferJobDepartment(
+              job.department,
+              job.title,
+              job.description,
+              job.requirements?.skills || [],
+            ),
             salaryMin: job.salaryMin,
             salaryMax: job.salaryMax,
             currency: job.currency,

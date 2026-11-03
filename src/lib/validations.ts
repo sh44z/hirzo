@@ -91,6 +91,19 @@ export const createJobSchema = z.object({
     "internship",
     "temporary",
   ]),
+  workplaceType: z.enum(["onsite", "hybrid", "remote"]).optional(),
+  department: z.enum([
+    "engineering",
+    "sales",
+    "marketing",
+    "design",
+    "product",
+    "operations",
+    "customer_success",
+    "finance",
+    "hr",
+    "other",
+  ]).optional(),
   salaryMin: z.number().nonnegative().optional(),
   salaryMax: z.number().nonnegative().optional(),
   currency: z.string().length(3).optional().default("GBP"),
@@ -115,6 +128,12 @@ export const createPaidJobPostingSchema = createJobSchema.extend({
 
 export const paypalCaptureSchema = z.object({
   orderId: z.string().min(1).max(128),
+});
+
+export const companyProfileSchema = z.object({
+  companyDescription: z.string().trim().max(2000).optional(),
+  companyCulture: z.string().trim().max(2000).optional(),
+  companyBenefits: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
 });
 
 export const updateJobSchema = createJobSchema.partial().extend({

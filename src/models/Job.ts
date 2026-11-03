@@ -1,10 +1,12 @@
 import mongoose, { Schema, models, model } from "mongoose";
 import type {
   EmploymentType,
+  JobDepartment,
   JobStatus,
   QualificationQuestion,
   VideoQuestion,
   JobRequirements,
+  WorkplaceType,
 } from "@/types";
 import type { JobPostingPlan } from "@/lib/job-posting-plans";
 
@@ -15,6 +17,8 @@ export interface IJob {
   description: string;
   location: string;
   employmentType: EmploymentType;
+  workplaceType?: WorkplaceType;
+  department?: JobDepartment;
   salaryMin?: number;
   salaryMax?: number;
   currency: string;
@@ -84,6 +88,25 @@ const JobSchema = new Schema<IJob>(
       type: String,
       enum: ["full_time", "part_time", "contract", "internship", "temporary"],
       required: true,
+    },
+    workplaceType: {
+      type: String,
+      enum: ["onsite", "hybrid", "remote"],
+    },
+    department: {
+      type: String,
+      enum: [
+        "engineering",
+        "sales",
+        "marketing",
+        "design",
+        "product",
+        "operations",
+        "customer_success",
+        "finance",
+        "hr",
+        "other",
+      ],
     },
     salaryMin: { type: Number },
     salaryMax: { type: Number },

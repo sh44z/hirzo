@@ -25,6 +25,8 @@ function serializeJob(job: InstanceType<typeof Job>) {
     description: job.description,
     location: job.location,
     employmentType: job.employmentType,
+    workplaceType: job.workplaceType,
+    department: job.department,
     salaryMin: job.salaryMin,
     salaryMax: job.salaryMax,
     currency: job.currency,
@@ -112,6 +114,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (updates.location !== undefined) job.location = updates.location;
     if (updates.employmentType !== undefined) {
       job.employmentType = updates.employmentType;
+    }
+    if (updates.workplaceType !== undefined) {
+      job.workplaceType = updates.workplaceType;
+    }
+    if (updates.department !== undefined) {
+      job.department = updates.department;
     }
     if (updates.salaryMin === null) job.salaryMin = undefined;
     else if (updates.salaryMin !== undefined) job.salaryMin = updates.salaryMin;

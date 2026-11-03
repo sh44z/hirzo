@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type Job = {
   id: string;
+  companyId: string;
   title: string;
   description: string;
   location: string;
   employmentType: string;
+  workplaceType: string;
+  department: string;
   companyName: string;
   companyLogo?: string;
   salaryMin?: number;
@@ -39,7 +42,14 @@ type Job = {
   }>;
 };
 
-const filters = ["All roles", "Full time", "Part time", "Contract", "Internship"];
+const filters = [
+  "All roles",
+  "Full time",
+  "Part time",
+  "Contract",
+  "Internship",
+  "Temporary",
+];
 const typeLabels: Record<string, string> = {
   full_time: "Full time",
   part_time: "Part time",
@@ -47,7 +57,20 @@ const typeLabels: Record<string, string> = {
   internship: "Internship",
   temporary: "Temporary",
 };
+const departmentLabels: Record<string, string> = {
+  engineering: "Engineering",
+  sales: "Sales",
+  marketing: "Marketing",
+  design: "Design",
+  product: "Product",
+  operations: "Operations",
+  customer_success: "Customer success",
+  finance: "Finance",
+  hr: "People & HR",
+  other: "Other",
+};
 const colors = ["mint", "lilac", "peach", "blue", "yellow"];
+const MAX_SALARY_FILTER = 100_000;
 
 function salaryLabel(job: Job) {
   if (!job.salaryMin && !job.salaryMax) return "Salary not listed";
@@ -113,6 +136,12 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [location, setLocation] = useState("");
   const [filter, setFilter] = useState("All roles");
+  const [workplaceFilter, setWorkplaceFilter] = useState("any");
+  const [departmentFilter, setDepartmentFilter] = useState("any");
+  const [salaryRange, setSalaryRange] = useState<[number, number]>([
+    0,
+    MAX_SALARY_FILTER,
+  ]);
   const [selected, setSelectedState] = useState<Job | null>(null);
   const [applying, setApplying] = useState(false);
   const [applicationDone, setApplicationDone] = useState(false);
@@ -123,6 +152,11 @@ export default function Home() {
   const [confirmQualificationMismatch, setConfirmQualificationMismatch] =
     useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [cvParsing, setCvParsing] = useState(false);
+  const [cvParseNotice, setCvParseNotice] = useState("");
+  const candidateNameRef = useRef<HTMLInputElement>(null);
+  const candidateEmailRef = useRef<HTMLInputElement>(null);
+  const candidatePhoneRef = useRef<HTMLInputElement>(null);
 
   function setSelected(job: Job | null) {
     setSelectedState(
@@ -166,7 +200,14 @@ export default function Home() {
       (job) =>
         job.featured &&
         (!term ||
-          [job.title, job.companyName, job.location, job.description].some(
+          [
+            job.title,
+            job.companyName,
+            job.location,
+            job.description,
+            ...(job.requirements?.skills || []),
+            ...(job.requirements?.qualifications || []),
+          ].some(
             (value) => value.toLowerCase().includes(term),
           )) &&
         (!place || job.location.toLowerCase().includes(place)),
@@ -179,7 +220,14 @@ export default function Home() {
         const term = search.trim().toLowerCase();
         const matchesTerm =
           !term ||
-          [job.title, job.companyName, job.location, job.description].some(
+          [
+            job.title,
+            job.companyName,
+            job.location,
+            job.description,
+            ...(job.requirements?.skills || []),
+            ...(job.requirements?.qualifications || []),
+          ].some(
             (value) => value.toLowerCase().includes(term),
           );
         const matchesLocation =
@@ -188,10 +236,86 @@ export default function Home() {
         const matchesFilter =
           filter === "All roles" ||
           typeLabels[job.employmentType] === filter;
-        return matchesTerm && matchesLocation && matchesFilter;
+        const matchesWorkplace =
+          workplaceFilter === "any" || job.workplaceType === workplaceFilter;
+        const matchesDepartment =
+          departmentFilter === "any" || job.department === departmentFilter;
+        const [minimumSalary, maximumSalary] = salaryRange;
+        const salarySpecified =
+          job.salaryMin !== undefined || job.salaryMax !== undefined;
+        const matchesSalary =
+          (minimumSalary === 0 && maximumSalary === MAX_SALARY_FILTER) ||
+          (salarySpecified &&
+            (minimumSalary === 0 ||
+              (job.salaryMax ?? job.salaryMin ?? 0) >= minimumSalary) &&
+            (maximumSalary === MAX_SALARY_FILTER ||
+              (job.salaryMin ?? job.salaryMax ?? Infinity) <= maximumSalary));
+        return (
+          matchesTerm &&
+          matchesLocation &&
+          matchesFilter &&
+          matchesWorkplace &&
+          matchesDepartment &&
+          matchesSalary
+        );
       }),
-    [jobs, search, location, filter],
+    [jobs, search, location, filter, workplaceFilter, departmentFilter, salaryRange],
   );
+
+  const searchSuggestions = useMemo(
+    () =>
+      [...new Set(
+        jobs.flatMap((job) => [
+          job.title,
+          ...(job.requirements?.skills || []),
+        ]),
+      )].slice(0, 100),
+    [jobs],
+  );
+
+  async function parseCv(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    setCvParseNotice("");
+    if (!file) return;
+    setCvParsing(true);
+    try {
+      const formData = new FormData();
+      formData.set("cvFile", file);
+      const response = await fetch("/api/applications/parse-cv", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not read your CV.");
+      const contact = data.contact as {
+        candidateName: string;
+        candidateEmail: string;
+        candidatePhone: string;
+      };
+      if (candidateNameRef.current && !candidateNameRef.current.value.trim()) {
+        candidateNameRef.current.value = contact.candidateName;
+      }
+      if (candidateEmailRef.current && !candidateEmailRef.current.value.trim()) {
+        candidateEmailRef.current.value = contact.candidateEmail;
+      }
+      if (candidatePhoneRef.current && !candidatePhoneRef.current.value.trim()) {
+        candidatePhoneRef.current.value = contact.candidatePhone;
+      }
+      setCvParseNotice(
+        contact.candidateName || contact.candidateEmail || contact.candidatePhone
+          ? "We found some contact details. Please check them before applying."
+          : "CV added. We couldn’t find contact details, so please enter them below.",
+      );
+    } catch (parseError) {
+      setCvParseNotice(
+        parseError instanceof Error
+          ? parseError.message
+          : "Could not read your CV. Please enter your details below.",
+      );
+    } finally {
+      setCvParsing(false);
+    }
+  }
 
   async function submitApplication(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -271,7 +395,7 @@ export default function Home() {
             />
           </Link>
           <div className="nav-center">
-            <a href="#opportunities">Find sales jobs</a>
+            <a href="#opportunities">Find jobs</a>
             <a href="#why-hirzo">About us</a>
           </div>
           <div className="nav-actions">
@@ -289,26 +413,43 @@ export default function Home() {
         <div className="hero-grid-lines" />
         <div className="hero-content">
           <div className="hero-tag">
-            <span className="hero-tag-dot" /> A better way to find your next
-            sales role
+            <span className="hero-tag-dot" /> BETTER WORK STARTS WITH A BETTER FIT
           </div>
           <h1>
-            Sales jobs
+            Good work
             <br />
-            start <span>here.</span>
+            starts <span>here.</span>
           </h1>
           <p className="hero-copy">
-            Discover sales jobs that fit your ambition, from your first sales
-            role to your next big move.
+            Find vetted opportunities from ambitious teams, or discover people
+            who will help your business grow.
           </p>
+          <div className="hero-audience-grid">
+            <article className="hero-audience-card">
+              <span className="eyebrow">FOR JOB SEEKERS</span>
+              <p>Find vetted roles at top companies. Attach your CV and apply with ease.</p>
+              <a href="#opportunities">Browse jobs <span>→</span></a>
+            </article>
+            <article className="hero-audience-card employer-audience-card">
+              <span className="eyebrow">FOR EMPLOYERS</span>
+              <p>Hire faster with thoughtful tools and smart candidate matching.</p>
+              <Link href="/workspace">Post a job <span>→</span></Link>
+            </article>
+          </div>
           <div className="hero-search">
             <span className="search-icon">⌕</span>
             <input
               aria-label="Search jobs"
-              placeholder="Account executive, SDR, sales manager"
+              list="job-search-suggestions"
+              placeholder="Search roles, companies, or skills"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
+            <datalist id="job-search-suggestions">
+              {searchSuggestions.map((suggestion) => (
+                <option key={suggestion} value={suggestion} />
+              ))}
+            </datalist>
             <span className="search-divider" />
             <span className="location-icon">⌖</span>
             <input
@@ -324,11 +465,11 @@ export default function Home() {
                   ?.scrollIntoView({ behavior: "smooth" })
               }
             >
-              Find sales jobs <span>→</span>
+              Find a role <span>→</span>
             </button>
           </div>
           <div className="hero-footnote">
-            <span>✳ &nbsp; Sales roles for every stage of your career</span>
+            <span>✳ &nbsp; Opportunities for what’s next</span>
             <span className="hero-footnote-right">No noise. Just good work.</span>
           </div>
         </div>
@@ -355,7 +496,7 @@ export default function Home() {
 
       <section className="trust-strip">
         <div className="trust-inner">
-          <span>FOR SALES PEOPLE READY TO GROW</span>
+          <span>FOR PEOPLE READY TO GROW</span>
           <div className="trust-stat">
             <strong>{jobs.length ? `${jobs.length}+` : "A fresh start"}</strong>
             <small>open opportunities</small>
@@ -363,7 +504,7 @@ export default function Home() {
           <div className="trust-divider" />
           <div className="trust-stat">
             <strong>Every stage</strong>
-            <small>from SDR to sales leader</small>
+            <small>from early career to senior leadership</small>
           </div>
           <div className="trust-divider" />
           <div className="trust-stat">
@@ -413,7 +554,13 @@ export default function Home() {
                     )}
                     <span className="feature-badge">Featured</span>
                   </div>
-                  <div className="job-card-company">{job.companyName}</div>
+                  <Link
+                    className="job-card-company company-name-link"
+                    href={`/companies/${job.companyId}`}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {job.companyName}
+                  </Link>
                   <h3>{job.title}</h3>
                   <div className="job-tags">
                     <span>{job.location}</span>
@@ -447,7 +594,7 @@ export default function Home() {
               <h2>
                 Find your next
                 <br />
-                <em>sales role.</em>
+                <em>great role.</em>
               </h2>
             </div>
             <p>
@@ -475,10 +622,85 @@ export default function Home() {
                 : `${visibleJobs.length} ${visibleJobs.length === 1 ? "role" : "roles"}`}
             </span>
           </div>
+          <div className="advanced-filter-bar">
+            <label>
+              Workplace
+              <select
+                aria-label="Filter by workplace"
+                value={workplaceFilter}
+                onChange={(event) => setWorkplaceFilter(event.target.value)}
+              >
+                <option value="any">Any workplace</option>
+                <option value="remote">Remote</option>
+                <option value="hybrid">Hybrid</option>
+                <option value="onsite">On-site</option>
+              </select>
+            </label>
+            <label>
+              Department
+              <select
+                aria-label="Filter by department"
+                value={departmentFilter}
+                onChange={(event) => setDepartmentFilter(event.target.value)}
+              >
+                <option value="any">All departments</option>
+                {Object.entries(departmentLabels).map(([value, label]) => (
+                  <option value={value} key={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <fieldset className="salary-range-filter">
+              <legend>Salary range</legend>
+              <div className="salary-range-values">
+                <span>{salaryRange[0] ? `£${Math.round(salaryRange[0] / 1000)}k` : "Any"}</span>
+                <span>{salaryRange[1] === MAX_SALARY_FILTER ? "£100k+" : `£${Math.round(salaryRange[1] / 1000)}k`}</span>
+              </div>
+              <label>
+                <span className="sr-only">Minimum salary</span>
+                <input
+                  type="range"
+                  min="0"
+                  max={MAX_SALARY_FILTER}
+                  step="5000"
+                  value={salaryRange[0]}
+                  onChange={(event) =>
+                    setSalaryRange((range) => [
+                      Math.min(Number(event.target.value), range[1]),
+                      range[1],
+                    ])
+                  }
+                />
+              </label>
+              <label>
+                <span className="sr-only">Maximum salary</span>
+                <input
+                  type="range"
+                  min="0"
+                  max={MAX_SALARY_FILTER}
+                  step="5000"
+                  value={salaryRange[1]}
+                  onChange={(event) =>
+                    setSalaryRange((range) => [
+                      range[0],
+                      Math.max(Number(event.target.value), range[0]),
+                    ])
+                  }
+                />
+              </label>
+            </fieldset>
+          </div>
           {loading ? (
-            <div className="jobs-loading">
-              <span className="loading-mark">H</span>
-              <p>Finding your next opportunity…</p>
+            <div className="job-grid skeleton-grid" aria-label="Loading jobs">
+              {Array.from({ length: 6 }, (_, index) => (
+                <div className="job-skeleton-card" key={index} aria-hidden="true">
+                  <div className="skeleton skeleton-logo" />
+                  <div className="skeleton skeleton-company" />
+                  <div className="skeleton skeleton-title" />
+                  <div className="skeleton skeleton-copy" />
+                  <div className="skeleton skeleton-copy short" />
+                  <div className="skeleton skeleton-footer" />
+                </div>
+              ))}
             </div>
           ) : visibleJobs.length === 0 ? (
             <div className="board-empty">
@@ -494,7 +716,11 @@ export default function Home() {
                   className="button button-light"
                   onClick={() => {
                     setSearch("");
+                    setLocation("");
                     setFilter("All roles");
+                    setWorkplaceFilter("any");
+                    setDepartmentFilter("any");
+                    setSalaryRange([0, MAX_SALARY_FILTER]);
                   }}
                 >
                   Clear filters
@@ -546,12 +772,26 @@ export default function Home() {
                       ↗
                     </button>
                   </div>
-                  <div className="job-card-company">{job.companyName}</div>
+                  <Link
+                    className="job-card-company company-name-link"
+                    href={`/companies/${job.companyId}`}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {job.companyName}
+                  </Link>
                   <h3>{job.title}</h3>
                   <p className="job-card-description">{job.description}</p>
                   <div className="job-tags">
                     <span>{job.location}</span>
                     <span>{typeLabels[job.employmentType] || job.employmentType}</span>
+                    <span>
+                      {job.workplaceType === "remote"
+                        ? "Remote"
+                        : job.workplaceType === "hybrid"
+                          ? "Hybrid"
+                          : "On-site"}
+                    </span>
+                    <span>{departmentLabels[job.department] || "Other"}</span>
                   </div>
                   <div className="job-card-bottom">
                     <span>{salaryLabel(job)}</span>
@@ -578,7 +818,7 @@ export default function Home() {
       <section className="manifesto-section" id="why-hirzo">
         <div className="manifesto-inner">
           <div className="section-kicker">
-            <span>02</span> A BETTER WAY TO FIND SALES WORK
+            <span>02</span> A BETTER WAY TO FIND GREAT WORK
           </div>
           <div className="manifesto-content">
             <div>
@@ -586,7 +826,7 @@ export default function Home() {
                 h<span>✳</span>
               </div>
               <h2>
-                The right sales role
+                The right role
                 <br />
                 can change your
                 <br />
@@ -595,7 +835,7 @@ export default function Home() {
             </div>
             <div className="manifesto-aside">
               <p>
-                We believe finding your next sales role shouldn&apos;t feel like
+                We believe finding your next role shouldn&apos;t feel like
                 work. Hirzo brings ambitious salespeople and great teams
                 together.
               </p>
@@ -624,7 +864,7 @@ export default function Home() {
               className="brand-logo"
             />
           </Link>
-          <span>The next sales role starts here.</span>
+          <span>Your next great role starts here.</span>
           <div>
             <Link href="/workspace">Employer workspace ↗</Link>
             <Link href="/backoffice">Backoffice</Link>
@@ -732,6 +972,7 @@ export default function Home() {
                       Your name
                       <input
                         name="candidateName"
+                        ref={candidateNameRef}
                         required
                         minLength={2}
                         placeholder="Alex Morgan"
@@ -741,6 +982,7 @@ export default function Home() {
                       Email address
                       <input
                         name="candidateEmail"
+                        ref={candidateEmailRef}
                         type="email"
                         required
                         placeholder="alex@email.com"
@@ -749,21 +991,40 @@ export default function Home() {
                   </div>
                   <label>
                     Phone number <span className="optional-label">Optional</span>
-                    <input name="candidatePhone" type="tel" placeholder="+44 7700 900000" />
+                    <input
+                      name="candidatePhone"
+                      ref={candidatePhoneRef}
+                      type="tel"
+                      placeholder="+44 7700 900000"
+                    />
                   </label>
                   <label>
                     CV link <span className="optional-label">Optional · public link</span>
                     <input name="cvUrl" type="url" placeholder="https://…" />
                   </label>
                   <label>
-                    Attach your Word CV{" "}
-                    <span className="optional-label">Optional · .doc or .docx, max 4 MB</span>
+                    Upload your CV{" "}
+                    <span className="optional-label">Word document · .doc or .docx · max 4 MB</span>
                     <input
                       name="cvFile"
                       type="file"
                       accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={(event) => void parseCv(event)}
                     />
                   </label>
+                  {cvParsing && (
+                    <p className="cv-parse-status" role="status">
+                      Reading your CV and looking for contact details…
+                    </p>
+                  )}
+                  {cvParseNotice && (
+                    <p
+                      className={cvParseNotice.startsWith("Could not") ? "form-error" : "cv-parse-status"}
+                      role="status"
+                    >
+                      {cvParseNotice}
+                    </p>
+                  )}
                   {selected.qualificationQuestions?.map((question) => (
                     <label key={question.id}>
                       {question.question}
@@ -888,7 +1149,13 @@ export default function Home() {
               </>
             ) : (
               <>
-                <div className="eyebrow">{selected.companyName.toUpperCase()}</div>
+                <Link
+                  className="eyebrow role-company-link"
+                  href={`/companies/${selected.companyId}`}
+                  onClick={() => setSelected(null)}
+                >
+                  {selected.companyName.toUpperCase()} · VIEW COMPANY
+                </Link>
                 <h2>{selected.title}</h2>
                 <div className="job-tags role-tags">
                   <span>{selected.location}</span>
@@ -896,6 +1163,8 @@ export default function Home() {
                     {typeLabels[selected.employmentType] || selected.employmentType}
                   </span>
                   <span>{salaryLabel(selected)}</span>
+                  <span>{selected.workplaceType === "remote" ? "Remote" : selected.workplaceType === "hybrid" ? "Hybrid" : "On-site"}</span>
+                  <span>{departmentLabels[selected.department] || "Other"}</span>
                 </div>
                 <div className="role-description">
                   {selected.description

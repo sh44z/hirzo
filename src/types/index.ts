@@ -5,6 +5,20 @@ export type EmploymentType =
   | "internship"
   | "temporary";
 
+export type JobDepartment =
+  | "engineering"
+  | "sales"
+  | "marketing"
+  | "design"
+  | "product"
+  | "operations"
+  | "customer_success"
+  | "finance"
+  | "hr"
+  | "other";
+
+export type WorkplaceType = "onsite" | "hybrid" | "remote";
+
 export type JobStatus = "draft" | "published" | "closed";
 
 export type QualificationQuestionType = "text" | "yes_no" | "multiple_choice";

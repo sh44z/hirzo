@@ -7,8 +7,10 @@ import { Job } from "@/models/Job";
 import { Application } from "@/models/Application";
 import { Employer } from "@/models/Employer";
 import { MatchResult } from "@/models/MatchResult";
+import { CandidatePolicy } from "@/models/CandidatePolicy";
 import { calculateMatchScore, extractCandidateProfile } from "@/lib/job-matching";
 import type { CandidateProfile, QualificationQuestion } from "@/types";
+import { getMaintenanceResponse } from "@/lib/platform-settings";
 
 export const runtime = "nodejs";
 
@@ -111,12 +113,23 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
+    const maintenanceResponse = await getMaintenanceResponse();
+    if (maintenanceResponse) return maintenanceResponse;
+
+    const candidateEmail = parsed.data.candidateEmail.toLowerCase();
+    if (await CandidatePolicy.exists({ email: candidateEmail, status: "banned" })) {
+      return NextResponse.json({ error: "This candidate cannot submit applications." }, { status: 403 });
+    }
+
     const job = await Job.findById(parsed.data.jobId);
     if (!job || job.status !== "published") {
       return notFound("Job is not open for applications");
     }
-    const employer = (await Employer.findById(job.employerId).select("active").lean()) as { active?: boolean } | null;
-    if (!employer || employer.active === false) {
+    const employer = (await Employer.findById(job.employerId).select("active status").lean()) as { active?: boolean; status?: string } | null;
+    if (!employer || employer.active === false || (employer.status && employer.status !== "active")) {
+      return notFound("Job is not open for applications");
+    }
+    if (job.moderationStatus && job.moderationStatus !== "approved") {
       return notFound("Job is not open for applications");
     }
 
@@ -187,7 +200,7 @@ export async function POST(request: NextRequest) {
         jobId: job._id,
         employerId: job.employerId,
         candidateName: parsed.data.candidateName,
-        candidateEmail: parsed.data.candidateEmail.toLowerCase(),
+        candidateEmail,
         candidatePhone: parsed.data.candidatePhone,
         cvUrl: parsed.data.cvUrl,
         cvFileName: uploadedCv?.fileName || parsed.data.cvFileName,

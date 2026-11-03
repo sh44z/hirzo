@@ -11,6 +11,7 @@ export interface IEmployer {
   companyBenefits?: string[];
   contactName: string;
   active: boolean;
+  status: "active" | "paused" | "pending_verification" | "suspended" | "banned";
   jobPostingDiscountPercent: number;
   createdAt: Date;
   updatedAt: Date;
@@ -33,6 +34,12 @@ const EmployerSchema = new Schema<IEmployer>(
     companyBenefits: { type: [String], default: [] },
     contactName: { type: String, required: true, trim: true },
     active: { type: Boolean, default: true },
+    status: {
+      type: String,
+      enum: ["active", "paused", "pending_verification", "suspended", "banned"],
+      default: "active",
+      index: true,
+    },
     jobPostingDiscountPercent: { type: Number, min: 0, max: 100, default: 0 },
   },
   { timestamps: true },

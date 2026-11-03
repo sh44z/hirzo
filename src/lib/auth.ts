@@ -171,8 +171,8 @@ export async function requireEmployerSession() {
     return { session: null as EmployerSession | null, error: unauthorized() };
   }
   await connectDB();
-  const employer = (await Employer.findById(session.employerId).select("active").lean()) as { active?: boolean } | null;
-  if (!employer || employer.active === false) {
+  const employer = (await Employer.findById(session.employerId).select("active status").lean()) as { active?: boolean; status?: string } | null;
+  if (!employer || employer.active === false || (employer.status && employer.status !== "active")) {
     return { session: null as EmployerSession | null, error: unauthorized("Employer account is inactive") };
   }
   return { session, error: null };

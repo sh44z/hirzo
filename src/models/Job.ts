@@ -1,7 +1,6 @@
 import mongoose, { Schema, models, model } from "mongoose";
 import type {
   EmploymentType,
-  JobDepartment,
   JobStatus,
   QualificationQuestion,
   VideoQuestion,
@@ -18,7 +17,7 @@ export interface IJob {
   location: string;
   employmentType: EmploymentType;
   workplaceType?: WorkplaceType;
-  department?: JobDepartment;
+  moderationStatus: "pending" | "approved" | "flagged" | "removed";
   salaryMin?: number;
   salaryMax?: number;
   currency: string;
@@ -93,20 +92,10 @@ const JobSchema = new Schema<IJob>(
       type: String,
       enum: ["onsite", "hybrid", "remote"],
     },
-    department: {
+    moderationStatus: {
       type: String,
-      enum: [
-        "engineering",
-        "sales",
-        "marketing",
-        "design",
-        "product",
-        "operations",
-        "customer_success",
-        "finance",
-        "hr",
-        "other",
-      ],
+      enum: ["pending", "approved", "flagged", "removed"],
+      index: true,
     },
     salaryMin: { type: Number },
     salaryMax: { type: Number },

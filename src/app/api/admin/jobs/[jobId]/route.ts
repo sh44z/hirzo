@@ -6,23 +6,25 @@ import { connectDB } from "@/lib/db";
 import { JOB_POSTING_PLANS } from "@/lib/job-posting-plans";
 import { Job } from "@/models/Job";
 import { JobPostingPayment } from "@/models/JobPostingPayment";
+import { recordAdminAction } from "@/lib/admin-audit";
 
-const updatePlanSchema = z.object({
-  postingPlan: z.enum(["basic", "premium"]),
-});
+const updateSchema = z.union([
+  z.object({ postingPlan: z.enum(["basic", "premium"]) }),
+  z.object({ moderationStatus: z.enum(["approved", "flagged", "removed"]) }),
+]);
 
 type Params = { params: Promise<{ jobId: string }> };
 
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
-    const { error } = await requireAdminSession();
-    if (error) return error;
+    const { session, error } = await requireAdminSession();
+    if (error || !session) return error!;
 
     const { jobId } = await params;
     if (!mongoose.Types.ObjectId.isValid(jobId)) {
       return badRequest("Invalid job id");
     }
-    const parsed = updatePlanSchema.safeParse(await request.json());
+    const parsed = updateSchema.safeParse(await request.json());
     if (!parsed.success) {
       return badRequest(parsed.error.issues[0]?.message || "Invalid job plan");
     }
@@ -31,12 +33,21 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const job = await Job.findById(jobId);
     if (!job) return notFound("Job not found");
 
+    if ("moderationStatus" in parsed.data) {
+      job.moderationStatus = parsed.data.moderationStatus;
+      if (parsed.data.moderationStatus === "removed") job.status = "closed";
+      await job.save();
+      await recordAdminAction(session, `Set job moderation to ${parsed.data.moderationStatus}`, "job", job.title, jobId);
+      return NextResponse.json({ job: { id: String(job._id), moderationStatus: job.moderationStatus, status: job.status } });
+    }
+
     const plan = parsed.data.postingPlan;
     const amount = JOB_POSTING_PLANS[plan].amount;
     job.postingPlan = plan;
     job.postingPrice = amount;
     job.featured = plan === "premium";
     await job.save();
+    await recordAdminAction(session, `Updated posting plan to ${plan}`, "job", job.title, jobId);
 
     await JobPostingPayment.create({
       employerId: job.employerId,

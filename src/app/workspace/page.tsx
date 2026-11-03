@@ -29,7 +29,6 @@ type Job = {
   location: string;
   employmentType: string;
   workplaceType?: string;
-  department?: string;
   salaryMin?: number;
   salaryMax?: number;
   currency: string;
@@ -305,7 +304,6 @@ export default function WorkspacePage() {
       location: String(form.get("location")),
       employmentType: String(form.get("employmentType")),
       workplaceType: String(form.get("workplaceType")),
-      department: String(form.get("department")),
       currency: "GBP",
       status: String(form.get("status")),
       ...(form.get("salaryMin")
@@ -443,7 +441,6 @@ export default function WorkspacePage() {
       location: String(form.get("location")),
       employmentType: String(form.get("employmentType")),
       workplaceType: String(form.get("workplaceType")),
-      department: String(form.get("department")),
       salaryMin: salaryMin ? Number(salaryMin) : null,
       salaryMax: salaryMax ? Number(salaryMax) : null,
       status: String(form.get("status")),
@@ -1333,21 +1330,6 @@ export default function WorkspacePage() {
               </div>
               <div className="form-row">
                 <label>
-                  Department
-                  <select name="department" defaultValue="sales">
-                    <option value="engineering">Engineering</option>
-                    <option value="sales">Sales</option>
-                    <option value="marketing">Marketing</option>
-                    <option value="design">Design</option>
-                    <option value="product">Product</option>
-                    <option value="operations">Operations</option>
-                    <option value="customer_success">Customer success</option>
-                    <option value="finance">Finance</option>
-                    <option value="hr">People &amp; HR</option>
-                    <option value="other">Other</option>
-                  </select>
-                </label>
-                <label>
                   Workplace
                   <select name="workplaceType" defaultValue="onsite">
                     <option value="onsite">On-site</option>
@@ -1598,24 +1580,6 @@ export default function WorkspacePage() {
                 </label>
               </div>
               <div className="form-row">
-                <label>
-                  Department
-                  <select
-                    name="department"
-                    defaultValue={editingJob.department || "other"}
-                  >
-                    <option value="engineering">Engineering</option>
-                    <option value="sales">Sales</option>
-                    <option value="marketing">Marketing</option>
-                    <option value="design">Design</option>
-                    <option value="product">Product</option>
-                    <option value="operations">Operations</option>
-                    <option value="customer_success">Customer success</option>
-                    <option value="finance">Finance</option>
-                    <option value="hr">People &amp; HR</option>
-                    <option value="other">Other</option>
-                  </select>
-                </label>
                 <label>
                   Workplace
                   <select

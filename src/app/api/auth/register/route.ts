@@ -10,9 +10,13 @@ import {
 } from "@/lib/auth";
 import { registerSchema } from "@/lib/validations";
 import { Employer } from "@/models/Employer";
+import { getMaintenanceResponse } from "@/lib/platform-settings";
 
 export async function POST(request: NextRequest) {
   try {
+    await connectDB();
+    const maintenanceResponse = await getMaintenanceResponse();
+    if (maintenanceResponse) return maintenanceResponse;
     const body = await request.json();
     const parsed = registerSchema.safeParse(body);
 
@@ -21,8 +25,6 @@ export async function POST(request: NextRequest) {
     }
 
     assertSessionSecretConfigured();
-    await connectDB();
-
     const email = parsed.data.email.toLowerCase();
     const existing = await Employer.findOne({ email });
     if (existing) {

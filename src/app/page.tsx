@@ -12,7 +12,6 @@ type Job = {
   location: string;
   employmentType: string;
   workplaceType: string;
-  department: string;
   companyName: string;
   companyLogo?: string;
   salaryMin?: number;
@@ -56,18 +55,6 @@ const typeLabels: Record<string, string> = {
   contract: "Contract",
   internship: "Internship",
   temporary: "Temporary",
-};
-const departmentLabels: Record<string, string> = {
-  engineering: "Engineering",
-  sales: "Sales",
-  marketing: "Marketing",
-  design: "Design",
-  product: "Product",
-  operations: "Operations",
-  customer_success: "Customer success",
-  finance: "Finance",
-  hr: "People & HR",
-  other: "Other",
 };
 const colors = ["mint", "lilac", "peach", "blue", "yellow"];
 const MAX_SALARY_FILTER = 100_000;
@@ -137,7 +124,6 @@ export default function Home() {
   const [location, setLocation] = useState("");
   const [filter, setFilter] = useState("All roles");
   const [workplaceFilter, setWorkplaceFilter] = useState("any");
-  const [departmentFilter, setDepartmentFilter] = useState("any");
   const [salaryRange, setSalaryRange] = useState<[number, number]>([
     0,
     MAX_SALARY_FILTER,
@@ -238,8 +224,6 @@ export default function Home() {
           typeLabels[job.employmentType] === filter;
         const matchesWorkplace =
           workplaceFilter === "any" || job.workplaceType === workplaceFilter;
-        const matchesDepartment =
-          departmentFilter === "any" || job.department === departmentFilter;
         const [minimumSalary, maximumSalary] = salaryRange;
         const salarySpecified =
           job.salaryMin !== undefined || job.salaryMax !== undefined;
@@ -255,11 +239,10 @@ export default function Home() {
           matchesLocation &&
           matchesFilter &&
           matchesWorkplace &&
-          matchesDepartment &&
           matchesSalary
         );
       }),
-    [jobs, search, location, filter, workplaceFilter, departmentFilter, salaryRange],
+    [jobs, search, location, filter, workplaceFilter, salaryRange],
   );
 
   const searchSuggestions = useMemo(
@@ -636,19 +619,6 @@ export default function Home() {
                 <option value="onsite">On-site</option>
               </select>
             </label>
-            <label>
-              Department
-              <select
-                aria-label="Filter by department"
-                value={departmentFilter}
-                onChange={(event) => setDepartmentFilter(event.target.value)}
-              >
-                <option value="any">All departments</option>
-                {Object.entries(departmentLabels).map(([value, label]) => (
-                  <option value={value} key={value}>{label}</option>
-                ))}
-              </select>
-            </label>
             <fieldset className="salary-range-filter">
               <legend>Salary range</legend>
               <div className="salary-range-values">
@@ -719,7 +689,6 @@ export default function Home() {
                     setLocation("");
                     setFilter("All roles");
                     setWorkplaceFilter("any");
-                    setDepartmentFilter("any");
                     setSalaryRange([0, MAX_SALARY_FILTER]);
                   }}
                 >
@@ -791,7 +760,6 @@ export default function Home() {
                           ? "Hybrid"
                           : "On-site"}
                     </span>
-                    <span>{departmentLabels[job.department] || "Other"}</span>
                   </div>
                   <div className="job-card-bottom">
                     <span>{salaryLabel(job)}</span>
@@ -1164,7 +1132,6 @@ export default function Home() {
                   </span>
                   <span>{salaryLabel(selected)}</span>
                   <span>{selected.workplaceType === "remote" ? "Remote" : selected.workplaceType === "hybrid" ? "Hybrid" : "On-site"}</span>
-                  <span>{departmentLabels[selected.department] || "Other"}</span>
                 </div>
                 <div className="role-description">
                   {selected.description

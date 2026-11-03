@@ -18,7 +18,7 @@ export async function GET() {
       "-passwordHash",
     );
 
-    if (!employer || employer.active === false) {
+    if (!employer || employer.active === false || (employer.status && employer.status !== "active")) {
       return unauthorized();
     }
 

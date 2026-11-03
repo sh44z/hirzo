@@ -3,6 +3,7 @@ import { z } from "zod";
 import { connectDB } from "@/lib/db";
 import { badRequest, hashPassword, requireAdminSession, serverError } from "@/lib/auth";
 import { AdminAccount } from "@/models/AdminAccount";
+import { recordAdminAction } from "@/lib/admin-audit";
 
 const createSchema = z.object({
   email: z.string().email(), name: z.string().min(2).max(120),
@@ -11,8 +12,8 @@ const createSchema = z.object({
 
 export async function GET() {
   try {
-    const { error } = await requireAdminSession();
-    if (error) return error;
+    const { session, error } = await requireAdminSession();
+    if (error || !session) return error!;
     await connectDB();
     const accounts = await AdminAccount.find().select("email name active createdAt").sort({ createdAt: 1 }).lean();
     return NextResponse.json({ accounts: accounts.map((account) => ({
@@ -27,8 +28,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { error } = await requireAdminSession();
-    if (error) return error;
+    const { session, error } = await requireAdminSession();
+    if (error || !session) return error!;
     const parsed = createSchema.safeParse(await request.json());
     if (!parsed.success) return badRequest(parsed.error.issues[0]?.message || "Invalid input");
     await connectDB();
@@ -43,6 +44,7 @@ export async function POST(request: NextRequest) {
       }
       throw error;
     }
+    await recordAdminAction(session, "Created master account", "admin", account.email, String(account._id));
     return NextResponse.json({ account: { id: String(account._id), email: account.email, name: account.name, active: account.active } }, { status: 201 });
   } catch (error) {
     console.error("Create admin account error:", error);

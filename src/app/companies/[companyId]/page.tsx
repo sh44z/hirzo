@@ -21,7 +21,6 @@ type CompanyProfile = {
     location: string;
     employmentType: string;
     workplaceType: string;
-    department: string;
     salaryMin?: number;
     salaryMax?: number;
     currency: string;

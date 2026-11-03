@@ -1,7 +1,6 @@
 import { Job } from "@/models/Job";
 import type { IJobPostingPayment } from "@/models/JobPostingPayment";
-
-const JOB_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
+import { getPlatformSettings } from "@/lib/platform-settings";
 
 export async function createJobForPayment(
   payment: Pick<
@@ -9,6 +8,7 @@ export async function createJobForPayment(
     "_id" | "employerId" | "plan" | "amount" | "jobData"
   >,
 ) {
+  const { defaultJobExpirationDays } = await getPlatformSettings();
   return Job.findOneAndUpdate(
     { paymentId: payment._id },
     {
@@ -17,7 +17,8 @@ export async function createJobForPayment(
         ...payment.jobData,
         postingPlan: payment.plan,
         postingPrice: payment.amount,
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + defaultJobExpirationDays * 24 * 60 * 60 * 1000),
+        moderationStatus: "pending",
         featured: payment.plan === "premium",
         paymentId: payment._id,
       },
@@ -33,6 +34,7 @@ export async function renewJobForPayment(
   >,
 ) {
   if (!payment.renewalJobId) return null;
+  const { defaultJobExpirationDays } = await getPlatformSettings();
 
   const job = await Job.findOne({
     _id: payment.renewalJobId,
@@ -42,7 +44,7 @@ export async function renewJobForPayment(
 
   if (String(job.lastRenewalPaymentId) !== String(payment._id)) {
     const expiresAt = new Date(
-      Math.max(Date.now(), job.expiresAt.getTime()) + JOB_LIFETIME_MS,
+      Math.max(Date.now(), job.expiresAt.getTime()) + defaultJobExpirationDays * 24 * 60 * 60 * 1000,
     );
     const renewedJob = await Job.findOneAndUpdate(
       {

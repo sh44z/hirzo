@@ -19,7 +19,7 @@ type Employer = {
   companyCulture?: string;
   companyBenefits?: string[];
   contactName: string;
-  jobPostingDiscountPercent: number;
+  jobPostingCredits: { basic: number; premium: number };
 };
 
 type Job = {
@@ -112,6 +112,13 @@ const typeLabels: Record<string, string> = {
 const planIds = ["basic", "premium", "full_recruitment"] as const;
 const MAX_COMPANY_LOGO_SIZE = 500 * 1024;
 const COMPANY_LOGO_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
+function getAvailablePostingCredits(
+  plan: JobPostingPlan,
+  credits: Employer["jobPostingCredits"],
+) {
+  return plan === "basic" || plan === "premium" ? credits[plan] : 0;
+}
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -340,6 +347,12 @@ export default function WorkspacePage() {
           .filter(Boolean),
       },
       plan: selectedPlan,
+      creditExpected:
+        Boolean(employer) &&
+        getAvailablePostingCredits(
+          selectedPlan,
+          employer?.jobPostingCredits || { basic: 0, premium: 0 },
+        ) > 0,
     };
     try {
       const response = await fetch("/api/payments/paypal/create-order", {
@@ -355,13 +368,13 @@ export default function WorkspacePage() {
       }
       if (!data.job) throw new Error("Checkout response was incomplete.");
       setShowCreate(false);
-      setPaymentNotice(`Free job posting confirmed. “${data.job.title}” is now in your job posts.`);
+      setPaymentNotice(`Free posting credit used. “${data.job.title}” is now in your job posts.`);
       await loadWorkspace();
       setSaving(false);
     } catch (checkoutError) {
       setError(
         checkoutError instanceof TypeError
-          ? "Could not connect to Hirzo or PayPal. Check your connection and try again."
+          ? "Could not reach Hirzo. Check your connection, then check your job posts before retrying in case the submission went through."
           : checkoutError instanceof Error
             ? checkoutError.message
           : "Could not start PayPal checkout.",
@@ -999,7 +1012,7 @@ export default function WorkspacePage() {
                       >
                         {renewingJobId === job.id
                           ? "Opening checkout…"
-                          : `Renew · £${getJobPostingPrice(job.postingPlan || "basic", employer.jobPostingDiscountPercent)}`}
+                          : `Renew · £${getJobPostingPrice(job.postingPlan || "basic")}`}
                       </button>
                     </div>
                     <section className="job-applicants">
@@ -1273,9 +1286,10 @@ export default function WorkspacePage() {
                 <div className="plan-picker-grid">
                   {planIds.map((planId) => {
                     const plan = JOB_POSTING_PLANS[planId];
-                    const price = getJobPostingPrice(
+                    const price = getJobPostingPrice(planId);
+                    const availableCredits = getAvailablePostingCredits(
                       planId,
-                      employer.jobPostingDiscountPercent,
+                      employer.jobPostingCredits,
                     );
                     return (
                       <button
@@ -1286,7 +1300,7 @@ export default function WorkspacePage() {
                         aria-pressed={selectedPlan === planId}
                       >
                         <strong>{plan.name}</strong>
-                        <b>{price === 0 ? "FREE" : <>£{price}{price !== plan.amount && <del>£{plan.amount}</del>}</>}</b>
+                        <b>{availableCredits > 0 ? `FREE · ${availableCredits} credit${availableCredits === 1 ? "" : "s"} left` : `£${price}`}</b>
                         <ul>
                           {plan.features.map((feature) => (
                             <li key={feature}>{feature}</li>
@@ -1509,10 +1523,12 @@ export default function WorkspacePage() {
                   className="button button-dark"
                 >
                   {saving
-                    ? "Opening PayPal…"
-                    : getJobPostingPrice(selectedPlan, employer.jobPostingDiscountPercent) === 0
-                      ? "Post for free"
-                      : `Pay £${getJobPostingPrice(selectedPlan, employer.jobPostingDiscountPercent)} with PayPal`}
+                    ? getAvailablePostingCredits(selectedPlan, employer.jobPostingCredits) > 0
+                      ? "Posting job…"
+                      : "Opening PayPal…"
+                    : getAvailablePostingCredits(selectedPlan, employer.jobPostingCredits) > 0
+                      ? `Use free ${selectedPlan} credit`
+                      : `Pay £${getJobPostingPrice(selectedPlan)} with PayPal`}
                   <span>→</span>
                 </button>
               </div>

@@ -15,14 +15,19 @@ const updateSchema = z
   .object({
     active: z.boolean().optional(),
     status: z.enum(["active", "paused", "pending_verification", "suspended", "banned"]).optional(),
-    jobPostingDiscountPercent: z.number().int().min(0).max(100).optional(),
+    jobPostingCreditGrant: z
+      .object({
+        plan: z.enum(["basic", "premium"]),
+        quantity: z.number().int().min(1).max(1000),
+      })
+      .optional(),
   })
   .refine(
     (value) =>
       value.active !== undefined ||
       value.status !== undefined ||
-      value.jobPostingDiscountPercent !== undefined,
-    "Provide an account status or discount",
+      value.jobPostingCreditGrant !== undefined,
+    "Provide an account status or free job posting credit grant",
   );
 type Params = { params: Promise<{ employerId: string }> };
 
@@ -35,21 +40,34 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const parsed = updateSchema.safeParse(await request.json());
     if (!parsed.success) return badRequest(parsed.error.issues[0]?.message || "Invalid employer update");
     await connectDB();
-    const changes = { ...parsed.data };
+    const { jobPostingCreditGrant, ...changes } = parsed.data;
     if (changes.status !== undefined) changes.active = changes.status === "active";
     else if (changes.active !== undefined) changes.status = changes.active ? "active" : "paused";
-    const employer = await Employer.findByIdAndUpdate(employerId, changes, { new: true })
-      .select("email companyName active status jobPostingDiscountPercent");
+    const update: Record<string, unknown> = {};
+    if (Object.keys(changes).length) update.$set = changes;
+    if (jobPostingCreditGrant) {
+      update.$inc = {
+        [`jobPostingCredits.${jobPostingCreditGrant.plan}`]:
+          jobPostingCreditGrant.quantity,
+      };
+    }
+    const employer = await Employer.findByIdAndUpdate(employerId, update, {
+      new: true,
+      runValidators: true,
+    }).select("email companyName active status jobPostingCredits");
     if (!employer) return notFound("Employer not found");
-    const action = changes.jobPostingDiscountPercent !== undefined
-      ? "Updated posting discount"
+    const action = jobPostingCreditGrant
+      ? `Granted ${jobPostingCreditGrant.quantity} ${jobPostingCreditGrant.plan} free job posting credit${jobPostingCreditGrant.quantity === 1 ? "" : "s"}`
       : `Set account status to ${changes.status}`;
     await recordAdminAction(session, action, "employer", employer.companyName, employerId);
     return NextResponse.json({ employer: {
       id: String(employer._id), email: employer.email, companyName: employer.companyName,
       active: employer.active,
       status: employer.status || (employer.active ? "active" : "paused"),
-      jobPostingDiscountPercent: employer.jobPostingDiscountPercent ?? 0,
+      jobPostingCredits: {
+        basic: employer.jobPostingCredits?.basic ?? 0,
+        premium: employer.jobPostingCredits?.premium ?? 0,
+      },
     } });
   } catch (error) {
     console.error("Admin employer update error:", error);

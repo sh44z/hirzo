@@ -11,6 +11,7 @@ import { normalizeQualificationQuestions } from "@/lib/questions";
 import { createPaidJobPostingSchema } from "@/lib/validations";
 import { JobPostingPayment } from "@/models/JobPostingPayment";
 import { Employer } from "@/models/Employer";
+import { Job } from "@/models/Job";
 import { connectDB } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
@@ -32,18 +33,39 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const plan = JOB_POSTING_PLANS[parsed.data.plan];
-    const employer = await Employer.findById(session.employerId)
-      .select("jobPostingDiscountPercent");
+    const employer = await Employer.findById(session.employerId).select("_id");
     if (!employer) return badRequest("Employer account not found");
-    const amount = getJobPostingPrice(
-      parsed.data.plan,
-      employer.jobPostingDiscountPercent ?? 0,
-    );
-    const payment = await JobPostingPayment.create({
+    const amount = getJobPostingPrice(parsed.data.plan);
+    const creditEligible = parsed.data.plan === "basic" || parsed.data.plan === "premium";
+    if (parsed.data.creditExpected && !creditEligible) {
+      return badRequest("Free posting credits can only be used for Basic or Premium jobs");
+    }
+
+    const creditUsed = creditEligible
+      ? Boolean(
+          await Employer.findOneAndUpdate(
+            {
+              _id: session.employerId,
+              [`jobPostingCredits.${parsed.data.plan}`]: { $gt: 0 },
+            },
+            { $inc: { [`jobPostingCredits.${parsed.data.plan}`]: -1 } },
+            { new: true },
+          ),
+        )
+      : false;
+    if (parsed.data.creditExpected && !creditUsed) {
+      return NextResponse.json(
+        { error: "That free posting credit has already been used. Refresh and try again." },
+        { status: 409 },
+      );
+    }
+
+    const paymentInput = {
       employerId: new mongoose.Types.ObjectId(session.employerId),
       plan: parsed.data.plan,
-      amount,
-      status: amount === 0 ? "captured" : "creating",
+      amount: creditUsed ? 0 : amount,
+      status: creditUsed ? ("captured" as const) : ("creating" as const),
+      paymentMethod: creditUsed ? ("credit" as const) : ("paypal" as const),
       jobData: {
         title: parsed.data.title,
         description: parsed.data.description,
@@ -59,15 +81,43 @@ export async function POST(request: NextRequest) {
         ),
         requirements: parsed.data.requirements,
       },
-    });
+    };
+    let payment;
+    try {
+      payment = await JobPostingPayment.create(paymentInput);
+    } catch (error) {
+      if (creditUsed) {
+        await Employer.updateOne(
+          { _id: session.employerId },
+          { $inc: { [`jobPostingCredits.${parsed.data.plan}`]: 1 } },
+        );
+      }
+      throw error;
+    }
 
-    if (amount === 0) {
-      const job = await createJobForPayment(payment);
-      payment.jobId = job._id;
-      await payment.save();
-      return NextResponse.json({
-        job: { id: job._id.toString(), title: job.title },
-      });
+    if (creditUsed) {
+      try {
+        const job = await createJobForPayment(payment);
+        payment.jobId = job._id;
+        await payment.save();
+        return NextResponse.json({
+          job: { id: job._id.toString(), title: job.title },
+          freePostCredit: true,
+        });
+      } catch (error) {
+        const existingJob = await Job.exists({ paymentId: payment._id });
+        if (!existingJob) {
+          await Employer.updateOne(
+            { _id: session.employerId },
+            { $inc: { [`jobPostingCredits.${parsed.data.plan}`]: 1 } },
+          );
+          await JobPostingPayment.updateOne(
+            { _id: payment._id },
+            { $set: { status: "failed" } },
+          );
+        }
+        throw error;
+      }
     }
 
     const accessToken = await getPayPalAccessToken();

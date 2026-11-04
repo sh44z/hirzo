@@ -34,7 +34,10 @@ export async function GET() {
           ? `/api/employers/${employer._id.toString()}/logo`
           : undefined,
         contactName: employer.contactName,
-        jobPostingDiscountPercent: employer.jobPostingDiscountPercent ?? 0,
+        jobPostingCredits: {
+          basic: employer.jobPostingCredits?.basic ?? 0,
+          premium: employer.jobPostingCredits?.premium ?? 0,
+        },
       },
     });
   } catch (error) {

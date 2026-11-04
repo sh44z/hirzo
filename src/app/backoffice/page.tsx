@@ -28,7 +28,7 @@ type Employer = {
   companyDescription: string;
   companyCulture: string;
   companyBenefits: string[];
-  jobPostingDiscountPercent: number;
+  jobPostingCredits: { basic: number; premium: number };
   jobsCount: number;
   applicationsCount: number;
   jobs: EmployerJob[];
@@ -126,6 +126,9 @@ export default function BackofficePage() {
   const [creating, setCreating] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [savingJobId, setSavingJobId] = useState("");
+  const [creditPlan, setCreditPlan] = useState<"basic" | "premium">("basic");
+  const [creditQuantity, setCreditQuantity] = useState("1");
+  const [grantingCredits, setGrantingCredits] = useState(false);
   const [temporaryPassword, setTemporaryPassword] = useState("");
 
   const loadData = useCallback(async () => {
@@ -289,17 +292,25 @@ export default function BackofficePage() {
     }
   }
 
-  async function updatePostingDiscount(employer: Employer, discount: number) {
+  async function grantPostingCredits(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedEmployer) return;
+    const quantity = Number(creditQuantity);
+    setGrantingCredits(true);
     try {
-      await readResponse(await fetch(`/api/admin/employers/${employer.id}`, {
+      await readResponse(await fetch(`/api/admin/employers/${selectedEmployer.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobPostingDiscountPercent: discount }),
+        body: JSON.stringify({
+          jobPostingCreditGrant: { plan: creditPlan, quantity },
+        }),
       }));
       await loadData();
-      showNotice(discount === 100 ? `${employer.companyName} can now post for free.` : "Employer pricing offer updated.");
+      showNotice(`${quantity} free ${creditPlan} job posting credit${quantity === 1 ? "" : "s"} granted to ${selectedEmployer.companyName}.`);
     } catch (error) {
-      showNotice(error instanceof Error ? error.message : "Could not update pricing offer.", true);
+      showNotice(error instanceof Error ? error.message : "Could not grant free job posting credits.", true);
+    } finally {
+      setGrantingCredits(false);
     }
   }
 
@@ -436,7 +447,7 @@ export default function BackofficePage() {
                 <label className="status-filter">Account status<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All statuses</option>{employerStatuses.map((status) => <option value={status.value} key={status.value}>{status.label}</option>)}</select></label>
               </div>
               <div className="admin-table employer-admin-table">
-                <div className="table-header employer-columns"><span>COMPANY</span><span>CONTACT</span><span>JOBS</span><span>POSTING OFFER</span><span>STATUS</span><span>ACTIONS</span></div>
+                <div className="table-header employer-columns"><span>COMPANY</span><span>CONTACT</span><span>JOBS</span><span>FREE POST CREDITS</span><span>STATUS</span><span>ACTIONS</span></div>
                 {visibleEmployers.length === 0 ? <div className="table-empty">{employers.length ? "No employers match your search." : "Employer accounts will appear here when they register."}</div> : visibleEmployers.map((item) => (
                   <div className="table-row employer-columns" key={item.id}>
                     <button className="company-cell company-open-button" onClick={() => setSelectedEmployer(item)} aria-label={`View ${item.companyName} profile`}>
@@ -444,7 +455,7 @@ export default function BackofficePage() {
                     </button>
                     <span className="table-secondary">{item.contactName}</span>
                     <div className="offer-cell"><span className="jobs-number">{item.jobsCount}</span><button className="table-action" onClick={() => setSelectedEmployer(item)}>View jobs</button></div>
-                    <span>{item.jobPostingDiscountPercent === 100 ? "Free" : item.jobPostingDiscountPercent > 0 ? `${item.jobPostingDiscountPercent}% off` : "Standard"}</span>
+                    <span>Basic {item.jobPostingCredits.basic} · Premium {item.jobPostingCredits.premium}</span>
                     <span><i className={`active-dot ${item.status === "active" ? "on" : "off"}`} />{statusLabel(item.status)}</span>
                     <details className="action-menu"><summary aria-label={`Actions for ${item.companyName}`}>•••</summary><div>
                       <button onClick={() => setSelectedEmployer(item)}>View profile</button>
@@ -528,11 +539,11 @@ export default function BackofficePage() {
           <header className="drawer-header"><div><div className="eyebrow">EMPLOYER PROFILE</div><h2 id="employer-drawer-title">{selectedEmployer.companyName}</h2></div><button className="icon-button" onClick={() => setSelectedEmployer(null)} aria-label="Close employer profile">×</button></header>
           <div className="drawer-body">
             <div className="drawer-contact"><strong>{selectedEmployer.contactName}</strong><a href={`mailto:${selectedEmployer.email}`}>{selectedEmployer.email}</a><span>Joined {formatDate(selectedEmployer.createdAt)}</span></div>
-            <div className="drawer-stats"><div><strong>{selectedEmployer.jobsCount}</strong><span>Jobs</span></div><div><strong>{selectedEmployer.applicationsCount}</strong><span>Applications</span></div><div><strong>{selectedEmployer.jobPostingDiscountPercent}%</strong><span>Discount</span></div></div>
+            <div className="drawer-stats"><div><strong>{selectedEmployer.jobsCount}</strong><span>Jobs</span></div><div><strong>{selectedEmployer.applicationsCount}</strong><span>Applications</span></div><div><strong>{selectedEmployer.jobPostingCredits.basic + selectedEmployer.jobPostingCredits.premium}</strong><span>Free post credits</span></div></div>
             <label className="drawer-status">Account status<select value={selectedEmployer.status} onChange={(event) => void updateEmployerStatus(selectedEmployer, event.target.value as EmployerStatus)}>{employerStatuses.map((status) => <option value={status.value} key={status.value}>{status.label}</option>)}</select></label>
             <section className="drawer-section"><h3>Company profile</h3><p>{selectedEmployer.companyDescription || "No company description provided."}</p>{selectedEmployer.companyCulture && <p>{selectedEmployer.companyCulture}</p>}{selectedEmployer.companyBenefits.length > 0 && <p><strong>Benefits:</strong> {selectedEmployer.companyBenefits.join(", ")}</p>}</section>
             <section className="drawer-section"><h3>Active jobs</h3>{selectedEmployer.jobs.length === 0 ? <p>No job posts yet.</p> : selectedEmployer.jobs.map((job) => <div className="drawer-job" key={job.id}><div><strong>{job.title}</strong><span>{statusLabel(job.status)} · expires {formatDate(job.expiresAt)}</span></div><select aria-label={`Posting plan for ${job.title}`} value={job.postingPlan === "full_recruitment" ? "premium" : job.postingPlan} disabled={savingJobId === job.id} onChange={(event) => void updateJobPlan(job, event.target.value as "basic" | "premium")}><option value="basic">Basic</option><option value="premium">Premium</option></select></div>)}</section>
-            <section className="drawer-section"><h3>Posting discount</h3><div className="discount-control"><input aria-label="Discount percentage" type="number" min="0" max="100" defaultValue={selectedEmployer.jobPostingDiscountPercent} key={selectedEmployer.id + selectedEmployer.jobPostingDiscountPercent} onBlur={(event) => { const value = Number(event.target.value); if (value !== selectedEmployer.jobPostingDiscountPercent) void updatePostingDiscount(selectedEmployer, value); }} /><span>% off all posting plans</span></div></section>
+            <section className="drawer-section"><h3>Grant free job posts</h3><p>Available now: Basic {selectedEmployer.jobPostingCredits.basic} · Premium {selectedEmployer.jobPostingCredits.premium}</p><form className="drawer-credit-form" onSubmit={(event) => void grantPostingCredits(event)}><label>Posting plan<select value={creditPlan} onChange={(event) => setCreditPlan(event.target.value as "basic" | "premium")}><option value="basic">Basic</option><option value="premium">Premium</option></select></label><label>Number of free posts<input aria-label="Number of free posts" type="number" min="1" max="1000" required value={creditQuantity} onChange={(event) => setCreditQuantity(event.target.value)} /></label><button className="button button-dark" type="submit" disabled={grantingCredits}>{grantingCredits ? "Granting…" : "Grant credits"}</button></form></section>
             <section className="drawer-section"><h3>Recent account activity</h3>{logs.filter((log) => log.targetId === selectedEmployer.id).slice(0, 8).map((log) => <p className="drawer-log" key={log.id}><strong>{log.action}</strong><span>{log.adminName} · {new Date(log.createdAt).toLocaleString("en-GB")}</span></p>)}{logs.filter((log) => log.targetId === selectedEmployer.id).length === 0 && <p>No recorded actions yet.</p>}</section>
           </div>
           <footer className="drawer-footer"><button className="button button-light" onClick={() => void runEmployerAction(selectedEmployer, "impersonate")}>Impersonate</button><button className="button button-light" onClick={() => void runEmployerAction(selectedEmployer, "reset_password")}>Reset password</button><button className="button button-danger" onClick={() => void runEmployerAction(selectedEmployer, "delete")}>Delete employer</button></footer>

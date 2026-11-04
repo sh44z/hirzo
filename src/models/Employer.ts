@@ -1,4 +1,5 @@
 import mongoose, { Schema, models, model } from "mongoose";
+import type { JobPostingCredits } from "@/lib/job-posting-plans";
 
 export interface IEmployer {
   _id: mongoose.Types.ObjectId;
@@ -12,7 +13,7 @@ export interface IEmployer {
   contactName: string;
   active: boolean;
   status: "active" | "paused" | "pending_verification" | "suspended" | "banned";
-  jobPostingDiscountPercent: number;
+  jobPostingCredits: JobPostingCredits;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,7 +41,10 @@ const EmployerSchema = new Schema<IEmployer>(
       default: "active",
       index: true,
     },
-    jobPostingDiscountPercent: { type: Number, min: 0, max: 100, default: 0 },
+    jobPostingCredits: {
+      basic: { type: Number, min: 0, default: 0 },
+      premium: { type: Number, min: 0, default: 0 },
+    },
   },
   { timestamps: true },
 );

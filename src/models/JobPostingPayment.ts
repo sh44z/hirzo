@@ -28,7 +28,7 @@ export interface IJobPostingPayment {
   amount: number;
   jobData: JobPostingData;
   status: "creating" | "pending" | "captured" | "failed";
-  paymentMethod?: "paypal" | "offline_invoice";
+  paymentMethod?: "paypal" | "offline_invoice" | "credit";
   renewalJobId?: mongoose.Types.ObjectId;
   jobId?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -53,7 +53,7 @@ const JobPostingPaymentSchema = new Schema<IJobPostingPayment>(
     jobData: { type: Schema.Types.Mixed, required: true },
     paymentMethod: {
       type: String,
-      enum: ["paypal", "offline_invoice"],
+      enum: ["paypal", "offline_invoice", "credit"],
       default: "paypal",
     },
     renewalJobId: { type: Schema.Types.ObjectId, ref: "Job" },

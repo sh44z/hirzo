@@ -32,6 +32,8 @@ export const JOB_POSTING_PLANS = {
 } as const;
 
 export type JobPostingPlan = keyof typeof JOB_POSTING_PLANS;
+export type CreditableJobPostingPlan = "basic" | "premium";
+export type JobPostingCredits = Record<CreditableJobPostingPlan, number>;
 
 export function isJobPostingPlan(value: unknown): value is JobPostingPlan {
   return (
@@ -40,13 +42,6 @@ export function isJobPostingPlan(value: unknown): value is JobPostingPlan {
   );
 }
 
-export function getJobPostingPrice(
-  plan: JobPostingPlan,
-  discountPercent = 0,
-): number {
-  return (
-    Math.round(
-      JOB_POSTING_PLANS[plan].amount * (100 - discountPercent),
-    ) / 100
-  );
+export function getJobPostingPrice(plan: JobPostingPlan): number {
+  return JOB_POSTING_PLANS[plan].amount;
 }

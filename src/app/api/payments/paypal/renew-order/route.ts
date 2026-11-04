@@ -10,7 +10,6 @@ import {
 } from "@/lib/job-posting-plans";
 import { createPayPalOrder, getPayPalAccessToken } from "@/lib/paypal";
 import { renewJobForPayment } from "@/lib/job-posting";
-import { Employer } from "@/models/Employer";
 import { Job } from "@/models/Job";
 import { JobPostingPayment } from "@/models/JobPostingPayment";
 
@@ -33,19 +32,15 @@ export async function POST(request: NextRequest) {
     }
 
     await connectDB();
-    const [job, employer] = await Promise.all([
-      Job.findOne({ _id: parsed.data.jobId, employerId: session.employerId }),
-      Employer.findById(session.employerId).select("jobPostingDiscountPercent"),
-    ]);
+    const job = await Job.findOne({
+      _id: parsed.data.jobId,
+      employerId: session.employerId,
+    });
     if (!job) return notFound("Job not found");
-    if (!employer) return notFound("Employer account not found");
 
     const plan = parsed.data.plan;
     if (!isJobPostingPlan(plan)) return badRequest("Invalid job posting plan");
-    const amount = getJobPostingPrice(
-      plan,
-      employer.jobPostingDiscountPercent ?? 0,
-    );
+    const amount = getJobPostingPrice(plan);
     const payment = await JobPostingPayment.create({
       employerId: new mongoose.Types.ObjectId(session.employerId),
       plan,

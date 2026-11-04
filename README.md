@@ -22,13 +22,13 @@ Required:
 
 Put real local values in `.env.local`; keep `.env.example` as a placeholder-only template. `.env.local` is ignored by Git and must not be committed. For Vercel, configure the same required values in the project's Environment Variables settings.
 
-Employer job posts use PayPal checkout unless a platform admin has applied a 100% discount:
+Employer job posts use PayPal checkout unless an employer has a free posting credit:
 
 - **Basic (£79):** job posting, qualification questions, applicant shortlisting, and hiring
 - **Premium (£110):** Basic plus CV screening, a featured job listing, and applicant match scoring with configurable role-specific weights
 - **Full Recruitment (£699):** job posting, candidate interviews, and contract preparation
 
-Platform admins can set an employer-specific discount from the backoffice. Discounts apply to all job posting plans; a 100% discount makes postings free and bypasses PayPal checkout.
+Platform admins can grant employer-specific Basic or Premium job posting credits from the backoffice. Each new job post uses one matching credit; once the balance is used, the employer pays the standard price through PayPal. Credits do not apply to Full Recruitment plans or renewals.
 
 Published and draft job posts expire 30 days after posting and are automatically removed by MongoDB's TTL index. Employers can renew a post from their workspace with a new paid checkout, extending its expiry by 30 days. Backoffice admins can set a job to Basic or Premium after confirming an offline invoice; the action is recorded as an offline payment.
 

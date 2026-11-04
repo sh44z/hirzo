@@ -112,6 +112,7 @@ export const createJobSchema = z.object({
 
 export const createPaidJobPostingSchema = createJobSchema.extend({
   plan: z.enum(["basic", "premium", "full_recruitment"]),
+  creditExpected: z.boolean().optional().default(false),
 });
 
 export const paypalCaptureSchema = z.object({

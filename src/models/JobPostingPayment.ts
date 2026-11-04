@@ -5,6 +5,7 @@ import type {
   JobStatus,
   QualificationQuestion,
   JobRequirements,
+  AssignmentTemplate,
 } from "@/types";
 
 export interface JobPostingData {
@@ -18,6 +19,7 @@ export interface JobPostingData {
   status: JobStatus;
   qualificationQuestions: QualificationQuestion[];
   requirements: JobRequirements;
+  defaultAssignment?: AssignmentTemplate;
 }
 
 export interface IJobPostingPayment {

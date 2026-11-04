@@ -1,5 +1,10 @@
 import { nanoid } from "nanoid";
-import type { QualificationQuestion, VideoQuestion } from "@/types";
+import type {
+  AssignmentQuestion,
+  AssignmentTemplate,
+  QualificationQuestion,
+  VideoQuestion,
+} from "@/types";
 
 type IncomingQualification = {
   id?: string;
@@ -39,4 +44,29 @@ export function normalizeVideoQuestions(
     maxDurationSeconds: q.maxDurationSeconds ?? 120,
     required: q.required ?? true,
   }));
+}
+
+type IncomingAssignment = {
+  instructions?: string;
+  timeLimitHours?: number;
+  questions: Array<
+    Omit<AssignmentQuestion, "id"> & { id?: string }
+  >;
+};
+
+export function normalizeAssignmentTemplate(
+  template?: IncomingAssignment,
+): AssignmentTemplate | undefined {
+  if (!template || template.questions.length === 0) return undefined;
+  return {
+    instructions: template.instructions?.trim() || "",
+    timeLimitHours: template.timeLimitHours,
+    questions: template.questions.map((question) => ({
+      ...question,
+      id: question.id || nanoid(),
+      options:
+        question.type === "multiple_choice" ? question.options || [] : undefined,
+      required: question.required ?? true,
+    })),
+  };
 }

@@ -50,6 +50,38 @@ const videoQuestionSchema = z.object({
   required: z.boolean().optional().default(true),
 });
 
+const assignmentQuestionSchema = z
+  .object({
+    id: z.string().min(1).optional(),
+    question: z.string().trim().min(3).max(500),
+    type: z.enum([
+      "long_text",
+      "multiple_choice",
+      "file_upload",
+      "video_link",
+    ]),
+    options: z.array(z.string().trim().min(1).max(200)).max(10).optional(),
+    required: z.boolean().optional().default(true),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      value.type === "multiple_choice" &&
+      (!value.options || value.options.length < 2)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Multiple choice questions need at least 2 options",
+        path: ["options"],
+      });
+    }
+  });
+
+export const assignmentTemplateSchema = z.object({
+  instructions: z.string().trim().max(3000).optional().default(""),
+  timeLimitHours: z.number().int().min(1).max(720).optional(),
+  questions: z.array(assignmentQuestionSchema).max(20),
+});
+
 const requirementListSchema = z
   .array(z.string().trim().min(1).max(200))
   .max(100, "Each job requirements list can contain at most 100 items");
@@ -101,6 +133,7 @@ export const createJobSchema = z.object({
     .optional()
     .default([]),
   videoQuestions: z.array(videoQuestionSchema).optional().default([]),
+  defaultAssignment: assignmentTemplateSchema.optional(),
   requirements: jobRequirementsSchema.default({
     skills: [],
     yearsExperience: 0,
@@ -128,6 +161,7 @@ export const companyProfileSchema = z.object({
 export const updateJobSchema = createJobSchema.partial().extend({
   salaryMin: z.number().nonnegative().nullable().optional(),
   salaryMax: z.number().nonnegative().nullable().optional(),
+  defaultAssignment: assignmentTemplateSchema.nullable().optional(),
 });
 
 export const updateApplicationStatusSchema = z.object({
@@ -140,6 +174,12 @@ export const updateApplicationStatusSchema = z.object({
     "rejected",
   ]),
   notes: z.string().max(2000).optional(),
+});
+
+export const reviewAssignmentSchema = z.object({
+  rating: z.number().int().min(1).max(5).nullable().optional(),
+  decision: z.enum(["pass", "fail"]).nullable().optional(),
+  feedback: z.string().trim().max(2000).optional(),
 });
 
 export const createApplicationSchema = z.object({

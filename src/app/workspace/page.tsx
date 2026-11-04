@@ -8,7 +8,19 @@ import {
   JOB_POSTING_PLANS,
   type JobPostingPlan,
 } from "@/lib/job-posting-plans";
-import type { ApplicationStatus } from "@/types";
+import type {
+  ApplicationStatus,
+  AssignmentQuestion,
+  AssignmentQuestionType,
+  AssignmentTemplate,
+} from "@/types";
+
+type AssignmentSummary = {
+  id: string;
+  status: "sent" | "in_progress" | "submitted" | "reviewed" | "expired";
+  rating?: number;
+  decision?: "pass" | "fail";
+};
 
 type Employer = {
   id: string;
@@ -36,6 +48,7 @@ type Job = {
   postingPlan?: JobPostingPlan;
   postingPrice?: number;
   featured?: boolean;
+  defaultAssignment?: AssignmentTemplate;
   createdAt: string;
   expiresAt: string;
   applicants: Applicant[];
@@ -50,6 +63,12 @@ type Applicant = {
   createdAt: string;
   score?: number;
   hasScannedCv: boolean;
+  candidateProfile?: {
+    skills: string[];
+    yearsExperience: number | null;
+    qualifications: string[];
+  };
+  assignment?: AssignmentSummary;
 };
 
 type ApplicantFilter = "all" | "shortlisted" | "interview";
@@ -59,6 +78,190 @@ type ContactDraft = {
   jobTitle: string;
   mode: "message" | "interview";
 };
+type AssignmentReview = {
+  id: string;
+  applicationId: string;
+  candidateName: string;
+  candidateEmail: string;
+  status: AssignmentSummary["status"];
+  template: AssignmentTemplate;
+  answers: Array<{ questionId: string; answer: string }>;
+  files: Array<{ questionId: string; fileName: string; downloadUrl: string }>;
+  rating?: number;
+  decision?: "pass" | "fail";
+  feedback?: string;
+  submittedAt?: string;
+};
+
+const emptyAssignmentTemplate = (): AssignmentTemplate => ({
+  instructions: "",
+  questions: [],
+});
+
+function AssignmentTemplateEditor({
+  template,
+  onChange,
+}: {
+  template: AssignmentTemplate;
+  onChange: (template: AssignmentTemplate) => void;
+}) {
+  function updateQuestion(
+    index: number,
+    update: Partial<AssignmentQuestion>,
+  ) {
+    onChange({
+      ...template,
+      questions: template.questions.map((question, questionIndex) =>
+        questionIndex === index ? { ...question, ...update } : question,
+      ),
+    });
+  }
+
+  return (
+    <fieldset className="qualification-editor assignment-template-editor">
+      <legend>Default candidate assignment <span className="optional-label">Optional</span></legend>
+      <p className="field-hint">
+        This template can be sent when you shortlist someone. You can also edit
+        it for an individual candidate.
+      </p>
+      <label>
+        Candidate instructions
+        <textarea
+          rows={3}
+          maxLength={3000}
+          value={template.instructions}
+          onChange={(event) =>
+            onChange({ ...template, instructions: event.target.value })
+          }
+          placeholder="Explain what to submit and what you will evaluate."
+        />
+      </label>
+      <label>
+        Time limit after the candidate opens the assignment
+        <select
+          value={template.timeLimitHours || ""}
+          onChange={(event) =>
+            onChange({
+              ...template,
+              timeLimitHours: event.target.value
+                ? Number(event.target.value)
+                : undefined,
+            })
+          }
+        >
+          <option value="">No timed limit</option>
+          <option value="24">24 hours</option>
+          <option value="48">48 hours</option>
+          <option value="72">72 hours</option>
+          <option value="168">7 days</option>
+        </select>
+      </label>
+      {template.questions.map((question, index) => (
+        <div className="assignment-question-editor" key={question.id}>
+          <label>
+            Question {index + 1}
+            <textarea
+              rows={2}
+              minLength={3}
+              maxLength={500}
+              required
+              value={question.question}
+              onChange={(event) =>
+                updateQuestion(index, { question: event.target.value })
+              }
+              placeholder="Describe the task or response you expect."
+            />
+          </label>
+          <div className="form-row">
+            <label>
+              Response type
+              <select
+                value={question.type}
+                onChange={(event) =>
+                  updateQuestion(index, {
+                    type: event.target.value as AssignmentQuestionType,
+                    options: [],
+                  })
+                }
+              >
+                <option value="long_text">Long response</option>
+                <option value="multiple_choice">Multiple choice</option>
+                <option value="file_upload">File upload</option>
+                <option value="video_link">Video/audio link</option>
+              </select>
+            </label>
+            {question.type === "multiple_choice" && (
+              <label>
+                Choices <span className="optional-label">One per line</span>
+                <textarea
+                  rows={3}
+                  required
+                  value={(question.options || []).join("\n")}
+                  onChange={(event) =>
+                    updateQuestion(index, {
+                      options: event.target.value
+                        .split(/\n/)
+                        .map((option) => option.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                  placeholder={"Option one\nOption two"}
+                />
+              </label>
+            )}
+          </div>
+          <div className="assignment-question-actions">
+            <label className="question-required-toggle">
+              <input
+                type="checkbox"
+                checked={question.required}
+                onChange={(event) =>
+                  updateQuestion(index, { required: event.target.checked })
+                }
+              />
+              Required
+            </label>
+            <button
+              type="button"
+              className="button button-light small-button"
+              onClick={() =>
+                onChange({
+                  ...template,
+                  questions: template.questions.filter(
+                    (_, questionIndex) => questionIndex !== index,
+                  ),
+                })
+              }
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ))}
+      <button
+        type="button"
+        className="button button-light add-question"
+        disabled={template.questions.length >= 20}
+        onClick={() =>
+          onChange({
+            ...template,
+            questions: [
+              ...template.questions,
+              {
+                id: crypto.randomUUID(),
+                question: "",
+                type: "long_text",
+                required: true,
+              },
+            ],
+          })
+        }
+      >
+        ＋ Add assignment question
+      </button>
+    </fieldset>
+  );
+}
 
 const applicationStages: Array<{ value: ApplicationStatus; label: string }> = [
   { value: "applied", label: "Applied" },
@@ -149,6 +352,11 @@ export default function WorkspacePage() {
   const [editError, setEditError] = useState("");
   const [deletingJobId, setDeletingJobId] = useState("");
   const [qualificationQuestions, setQualificationQuestions] = useState<Array<{ question: string; expectedAnswer: string; required: boolean }>>([]);
+  const [defaultAssignment, setDefaultAssignment] = useState<AssignmentTemplate>(
+    emptyAssignmentTemplate,
+  );
+  const [editDefaultAssignment, setEditDefaultAssignment] =
+    useState<AssignmentTemplate>(emptyAssignmentTemplate);
   const [selectedPlan, setSelectedPlan] = useState<JobPostingPlan>("basic");
   const [updatingApplicant, setUpdatingApplicant] = useState("");
   const [applicantFilters, setApplicantFilters] = useState<
@@ -158,6 +366,27 @@ export default function WorkspacePage() {
     Record<string, ApplicantSort>
   >({});
   const [contactDraft, setContactDraft] = useState<ContactDraft | null>(null);
+  const [shortlistDraft, setShortlistDraft] = useState<{
+    applicant: Applicant;
+    job: Job;
+  } | null>(null);
+  const [shortlistTemplate, setShortlistTemplate] =
+    useState<AssignmentTemplate>(emptyAssignmentTemplate);
+  const [assignmentInvite, setAssignmentInvite] = useState<{
+    candidateName: string;
+    candidateEmail: string;
+    url: string;
+    emailSent: boolean;
+    emailMessage: string;
+  } | null>(null);
+  const [sendingAssignment, setSendingAssignment] = useState(false);
+  const [copiedAssignmentLink, setCopiedAssignmentLink] = useState(false);
+  const [assignmentReview, setAssignmentReview] =
+    useState<AssignmentReview | null>(null);
+  const [assignmentReviewOpen, setAssignmentReviewOpen] = useState(false);
+  const [loadingAssignmentReview, setLoadingAssignmentReview] = useState(false);
+  const [savingAssignmentReview, setSavingAssignmentReview] = useState(false);
+  const [assignmentReviewError, setAssignmentReviewError] = useState("");
   const [copiedJobId, setCopiedJobId] = useState("");
   const [paymentNotice, setPaymentNotice] = useState("");
   const [pendingPayPalOrder, setPendingPayPalOrder] = useState("");
@@ -165,8 +394,8 @@ export default function WorkspacePage() {
   const [renewingJobId, setRenewingJobId] = useState("");
   const capturedOrder = useRef("");
 
-  const loadWorkspace = useCallback(async () => {
-    setLoading(true);
+  const loadWorkspace = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
     try {
       const me = await fetch("/api/auth/me");
       if (!me.ok) {
@@ -188,7 +417,7 @@ export default function WorkspacePage() {
           : "Could not load your workspace.",
       );
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   }, []);
 
@@ -196,6 +425,17 @@ export default function WorkspacePage() {
     const timer = window.setTimeout(() => void loadWorkspace(), 0);
     return () => window.clearTimeout(timer);
   }, [loadWorkspace]);
+
+  useEffect(() => {
+    if (!employer) return;
+    const refresh = () => void loadWorkspace(true);
+    const interval = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [employer, loadWorkspace]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -327,6 +567,16 @@ export default function WorkspacePage() {
           required,
         }))
         .filter((question) => question.question && question.expectedAnswer),
+      defaultAssignment:
+        defaultAssignment.questions.length > 0
+          ? {
+              ...defaultAssignment,
+              questions: defaultAssignment.questions.map((question) => ({
+                ...question,
+                question: question.question.trim(),
+              })),
+            }
+          : undefined,
       requirements: {
         skills: String(form.get("skills") || "")
           .split(/\n|,/)
@@ -386,6 +636,7 @@ export default function WorkspacePage() {
   function openCreateJob() {
     setError("");
     setQualificationQuestions([]);
+    setDefaultAssignment(emptyAssignmentTemplate());
     setSelectedPlan("basic");
     setShowCreate(true);
   }
@@ -457,6 +708,16 @@ export default function WorkspacePage() {
       salaryMin: salaryMin ? Number(salaryMin) : null,
       salaryMax: salaryMax ? Number(salaryMax) : null,
       status: String(form.get("status")),
+      defaultAssignment:
+        editDefaultAssignment.questions.length > 0
+          ? {
+              ...editDefaultAssignment,
+              questions: editDefaultAssignment.questions.map((question) => ({
+                ...question,
+                question: question.question.trim(),
+              })),
+            }
+          : null,
     };
     try {
       const response = await fetch(`/api/employers/jobs/${editingJob.id}`, {
@@ -581,6 +842,148 @@ export default function WorkspacePage() {
       );
     } finally {
       setUpdatingApplicant("");
+    }
+  }
+
+  function openShortlistModal(applicant: Applicant, job: Job) {
+    setError("");
+    setShortlistTemplate(
+      job.defaultAssignment
+        ? structuredClone(job.defaultAssignment)
+        : emptyAssignmentTemplate(),
+    );
+    setShortlistDraft({ applicant, job });
+  }
+
+  async function sendAssignment() {
+      if (!shortlistDraft) return;
+      setSendingAssignment(true);
+      setError("");
+      try {
+        const response = await fetch(
+          `/api/employers/applications/${shortlistDraft.applicant.id}/assignment`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ template: shortlistTemplate }),
+          },
+        );
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Could not send this assignment.");
+        }
+        setJobs((current) =>
+          current.map((job) => ({
+            ...job,
+            applicants: job.applicants.map((applicant) =>
+              applicant.id === shortlistDraft.applicant.id
+                ? {
+                    ...applicant,
+                    status: "shortlisted",
+                    assignment: {
+                      id: data.assignment.id,
+                      status: data.assignment.status,
+                    },
+                  }
+                : applicant,
+            ),
+          })),
+        );
+        setAssignmentInvite({
+          candidateName: shortlistDraft.applicant.candidateName,
+          candidateEmail: shortlistDraft.applicant.candidateEmail,
+          url: data.assignmentUrl,
+          emailSent: data.emailSent,
+          emailMessage: data.emailMessage,
+        });
+        setCopiedAssignmentLink(false);
+        setShortlistDraft(null);
+      } catch (assignmentError) {
+        setError(
+          assignmentError instanceof Error
+            ? assignmentError.message
+            : "Could not send this assignment.",
+        );
+      } finally {
+        setSendingAssignment(false);
+      }
+    }
+
+  async function openAssignmentReview(applicant: Applicant) {
+      if (!applicant.assignment) return;
+      setAssignmentReviewOpen(true);
+      setLoadingAssignmentReview(true);
+      setAssignmentReviewError("");
+      try {
+        const response = await fetch(
+          `/api/employers/assignments/${applicant.assignment.id}`,
+        );
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not load assignment.");
+        setAssignmentReview(data.assignment);
+      } catch (reviewError) {
+        setAssignmentReviewError(
+          reviewError instanceof Error
+            ? reviewError.message
+            : "Could not load assignment.",
+        );
+      } finally {
+        setLoadingAssignmentReview(false);
+      }
+    }
+
+  async function saveAssignmentReview(event: FormEvent<HTMLFormElement>) {
+      event.preventDefault();
+      if (!assignmentReview) return;
+      setSavingAssignmentReview(true);
+      setAssignmentReviewError("");
+      const form = new FormData(event.currentTarget);
+      const rating = String(form.get("rating") || "");
+      const decision = String(form.get("decision") || "");
+      try {
+        const response = await fetch(
+          `/api/employers/assignments/${assignmentReview.id}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              rating: rating ? Number(rating) : null,
+              decision: decision || null,
+              feedback: String(form.get("feedback") || ""),
+            }),
+          },
+        );
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not save scorecard.");
+        setJobs((current) =>
+          current.map((job) => ({
+            ...job,
+            applicants: job.applicants.map((applicant) =>
+              applicant.id === assignmentReview.applicationId &&
+              applicant.assignment
+                ? {
+                    ...applicant,
+                    assignment: {
+                      ...applicant.assignment,
+                      status: "reviewed",
+                      rating: data.assignment.rating,
+                      decision: data.assignment.decision,
+                    },
+                  }
+                : applicant,
+            ),
+          })),
+        );
+        setAssignmentReview(null);
+        setAssignmentReviewOpen(false);
+      } catch (reviewError) {
+        setAssignmentReviewError(
+          reviewError instanceof Error
+            ? reviewError.message
+            : "Could not save scorecard.",
+        );
+      } finally {
+        setSavingAssignmentReview(false);
     }
   }
 
@@ -791,6 +1194,11 @@ export default function WorkspacePage() {
       ),
     ]),
   );
+  const reviewApplicant = assignmentReview
+    ? jobs
+        .flatMap((job) => job.applicants)
+        .find((applicant) => applicant.id === assignmentReview.applicationId)
+    : undefined;
 
   return (
     <main className="workspace-shell">
@@ -993,6 +1401,11 @@ export default function WorkspacePage() {
                         className="button button-light small-button"
                         onClick={() => {
                           setEditError("");
+                          setEditDefaultAssignment(
+                            job.defaultAssignment
+                              ? structuredClone(job.defaultAssignment)
+                              : emptyAssignmentTemplate(),
+                          );
                           setEditingJob(job);
                         }}
                       >
@@ -1097,6 +1510,13 @@ export default function WorkspacePage() {
                                 <span className={`status-pill applicant-status ${applicant.status}`}>
                                   {applicationStatusLabels[applicant.status]}
                                 </span>
+                                {applicant.assignment && (
+                                <span
+                                  className={`assignment-status-pill ${applicant.assignment.status}`}
+                                >
+                                  Assignment {applicant.assignment.status.replace("_", " ")}
+                                </span>
+                                )}
                                 <span className="applicant-applied-date">
                                   Applied {new Date(applicant.createdAt).toLocaleDateString("en-GB")}
                                 </span>
@@ -1126,12 +1546,14 @@ export default function WorkspacePage() {
                                     aria-label={`Move ${applicant.candidateName} to a pipeline stage`}
                                     value={applicant.status}
                                     disabled={updatingApplicant === applicant.id}
-                                    onChange={(event) =>
-                                      void updateApplicantStatus(
-                                        applicant,
-                                        event.target.value as ApplicationStatus,
-                                      )
-                                    }
+                                    onChange={(event) => {
+                                      const status = event.target.value as ApplicationStatus;
+                                      if (status === "shortlisted") {
+                                        openShortlistModal(applicant, job);
+                                      } else {
+                                        void updateApplicantStatus(applicant, status);
+                                      }
+                                    }}
                                   >
                                     {applicationStages.map((stage) => (
                                       <option
@@ -1151,6 +1573,32 @@ export default function WorkspacePage() {
                                     ))}
                                   </select>
                                 </label>
+                                {applicant.status === "shortlisted" &&
+                                  (!applicant.assignment ||
+                                    applicant.assignment.status === "expired") && (
+                                    <button
+                                      className="button button-light small-button"
+                                      onClick={() =>
+                                        openShortlistModal(applicant, job)
+                                      }
+                                    >
+                                      Send assignment
+                                    </button>
+                                  )}
+                                {applicant.assignment?.status === "submitted" ||
+                                applicant.assignment?.status === "reviewed" ? (
+                                  <button
+                                    className="button button-light small-button"
+                                    disabled={loadingAssignmentReview}
+                                    onClick={() =>
+                                      void openAssignmentReview(applicant)
+                                    }
+                                  >
+                                    {applicant.assignment.status === "reviewed"
+                                      ? "Review scorecard"
+                                      : "Review assignment"}
+                                  </button>
+                                ) : null}
                                 <button
                                   className="button button-light small-button"
                                   disabled={updatingApplicant === applicant.id}
@@ -1501,6 +1949,10 @@ export default function WorkspacePage() {
                   ＋ Add a question
                 </button>
               </fieldset>
+              <AssignmentTemplateEditor
+                template={defaultAssignment}
+                onChange={setDefaultAssignment}
+              />
               <label>
                 Visibility after payment
                 <select name="status" defaultValue="published">
@@ -1638,6 +2090,10 @@ export default function WorkspacePage() {
                   defaultValue={editingJob.description}
                 />
               </label>
+              <AssignmentTemplateEditor
+                template={editDefaultAssignment}
+                onChange={setEditDefaultAssignment}
+              />
               <label>
                 Visibility
                 <select name="status" defaultValue={editingJob.status}>
@@ -1764,6 +2220,305 @@ export default function WorkspacePage() {
                 </button>
               </div>
             </form>
+          </section>
+        </div>
+      )}
+
+      {shortlistDraft && (
+        <div className="modal-backdrop">
+          <section
+            className="job-modal shortlist-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="shortlist-modal-title"
+          >
+            <div className="modal-heading">
+              <div>
+                <div className="eyebrow">NEXT STEP</div>
+                <h2 id="shortlist-modal-title">
+                  Shortlist {shortlistDraft.applicant.candidateName}?
+                </h2>
+              </div>
+              <button
+                className="icon-button close-button"
+                aria-label="Close"
+                disabled={sendingAssignment}
+                onClick={() => setShortlistDraft(null)}
+              >
+                ×
+              </button>
+            </div>
+            <p className="muted">
+              Send the job&apos;s default assignment now, adjust it for this
+              candidate, or shortlist without an assignment.
+            </p>
+            <AssignmentTemplateEditor
+              template={shortlistTemplate}
+              onChange={setShortlistTemplate}
+            />
+            {error && <p className="form-error">{error}</p>}
+            <div className="modal-actions shortlist-actions">
+              <button
+                type="button"
+                className="button button-light"
+                disabled={sendingAssignment}
+                onClick={() => setShortlistDraft(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="button button-light"
+                disabled={sendingAssignment}
+                onClick={() => {
+                  void updateApplicantStatus(
+                    shortlistDraft.applicant,
+                    "shortlisted",
+                  );
+                  setShortlistDraft(null);
+                }}
+              >
+                Shortlist without assignment
+              </button>
+              <button
+                type="button"
+                className="button button-dark"
+                disabled={
+                  sendingAssignment || shortlistTemplate.questions.length === 0
+                }
+                onClick={() => void sendAssignment()}
+              >
+                {sendingAssignment ? "Sending…" : "Send assignment"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {assignmentInvite && (
+        <div className="modal-backdrop">
+          <section
+            className="job-modal assignment-invite-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="assignment-invite-title"
+          >
+            <div className="modal-heading">
+              <div>
+                <div className="eyebrow">ASSIGNMENT INVITATION</div>
+                <h2 id="assignment-invite-title">Assessment ready</h2>
+              </div>
+              <button
+                className="icon-button close-button"
+                aria-label="Close"
+                onClick={() => setAssignmentInvite(null)}
+              >
+                ×
+              </button>
+            </div>
+            <p className="muted">
+              {assignmentInvite.emailMessage}
+            </p>
+            {error && <p className="form-error">{error}</p>}
+            <label>
+              Secure candidate link
+              <input readOnly value={assignmentInvite.url} />
+            </label>
+            <div className="modal-actions">
+              <button
+                className="button button-light"
+                onClick={() => setAssignmentInvite(null)}
+              >
+                Done
+              </button>
+              <a
+                className="button button-light"
+                href={`mailto:${encodeURIComponent(assignmentInvite.candidateEmail)}?subject=${encodeURIComponent("Your candidate assignment")}&body=${encodeURIComponent(`Hi ${assignmentInvite.candidateName},\n\nPlease complete your assignment using this secure link:\n${assignmentInvite.url}`)}`}
+              >
+                Open email draft
+              </a>
+              <button
+                className="button button-dark"
+                onClick={() => {
+                  void navigator.clipboard
+                    .writeText(assignmentInvite.url)
+                    .then(() => setCopiedAssignmentLink(true))
+                    .catch(() =>
+                      setError("Could not copy the assignment link."),
+                    );
+                }}
+              >
+                {copiedAssignmentLink ? "Link copied" : "Copy link"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {assignmentReviewOpen && (
+        <div className="modal-backdrop">
+          <section
+            className="job-modal assignment-review-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="assignment-review-title"
+          >
+            <div className="modal-heading">
+              <div>
+                <div className="eyebrow">CANDIDATE SUBMISSION</div>
+                <h2 id="assignment-review-title">
+                  {assignmentReview?.candidateName || "Loading submission…"}
+                </h2>
+              </div>
+              <button
+                className="icon-button close-button"
+                aria-label="Close"
+                onClick={() => {
+                  setAssignmentReview(null);
+                  setAssignmentReviewOpen(false);
+                  setAssignmentReviewError("");
+                }}
+              >
+                ×
+              </button>
+            </div>
+            {loadingAssignmentReview ? (
+              <p className="field-hint">Loading assignment responses…</p>
+            ) : assignmentReview ? (
+              <>
+                <div className="assignment-review-links">
+                  <a href={`mailto:${assignmentReview.candidateEmail}`}>
+                    {assignmentReview.candidateEmail}
+                  </a>
+                  {reviewApplicant?.cvDownloadUrl && (
+                    <a
+                      href={reviewApplicant.cvDownloadUrl}
+                    >
+                      Download candidate CV
+                    </a>
+                  )}
+                  {reviewApplicant?.score !== undefined && (
+                    <span>ATS CV match: {reviewApplicant.score}%</span>
+                  )}
+                  {assignmentReview.submittedAt && (
+                    <span>
+                      Submitted{" "}
+                      {new Date(assignmentReview.submittedAt).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                <div className="assignment-review-grid">
+                  <div className="assignment-responses">
+                    {assignmentReview.template.questions.map((question) => {
+                      const answer = assignmentReview.answers.find(
+                        (item) => item.questionId === question.id,
+                      )?.answer;
+                      const file = assignmentReview.files.find(
+                        (item) => item.questionId === question.id,
+                      );
+                      return (
+                        <article key={question.id}>
+                          <h3>{question.question}</h3>
+                          {file ? (
+                            <a href={file.downloadUrl}>{file.fileName} · Download</a>
+                          ) : question.type === "video_link" && answer ? (
+                            <a href={answer} target="_blank" rel="noreferrer">
+                              Open candidate response
+                            </a>
+                          ) : (
+                            <p>{answer || "No response provided."}</p>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                  <section className="assignment-cv-summary">
+                    <h3>CV &amp; ATS match</h3>
+                    {reviewApplicant?.score !== undefined ? (
+                      <strong>{reviewApplicant.score}% match</strong>
+                    ) : (
+                      <p>CV match score unavailable.</p>
+                    )}
+                    {reviewApplicant?.candidateProfile?.yearsExperience != null && (
+                      <p>
+                        {reviewApplicant.candidateProfile.yearsExperience} years
+                        of experience
+                      </p>
+                    )}
+                    {reviewApplicant?.candidateProfile?.skills.length ? (
+                      <>
+                        <h4>Extracted skills</h4>
+                        <p>{reviewApplicant.candidateProfile.skills.join(", ")}</p>
+                      </>
+                    ) : null}
+                    {reviewApplicant?.candidateProfile?.qualifications.length ? (
+                      <>
+                        <h4>Qualifications</h4>
+                        <p>
+                          {reviewApplicant.candidateProfile.qualifications.join(
+                            ", ",
+                          )}
+                        </p>
+                      </>
+                    ) : null}
+                    {!reviewApplicant?.cvDownloadUrl && (
+                      <p>No CV was attached to this application.</p>
+                    )}
+                  </section>
+                  <form
+                    className="form-stack assignment-scorecard"
+                    onSubmit={(event) => void saveAssignmentReview(event)}
+                  >
+                    <h3>Internal scorecard</h3>
+                    <label>
+                      Rating
+                      <select
+                        name="rating"
+                        defaultValue={assignmentReview.rating || ""}
+                      >
+                        <option value="">Not rated</option>
+                        {[1, 2, 3, 4, 5].map((rating) => (
+                          <option key={rating} value={rating}>
+                            {rating} / 5
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Decision
+                      <select
+                        name="decision"
+                        defaultValue={assignmentReview.decision || ""}
+                      >
+                        <option value="">No decision</option>
+                        <option value="pass">Pass</option>
+                        <option value="fail">Fail</option>
+                      </select>
+                    </label>
+                    <label>
+                      Internal feedback
+                      <textarea
+                        name="feedback"
+                        rows={5}
+                        maxLength={2000}
+                        defaultValue={assignmentReview.feedback || ""}
+                      />
+                    </label>
+                    {assignmentReviewError && (
+                      <p className="form-error">{assignmentReviewError}</p>
+                    )}
+                    <button
+                      className="button button-dark"
+                      disabled={savingAssignmentReview}
+                    >
+                      {savingAssignmentReview ? "Saving…" : "Save scorecard"}
+                    </button>
+                  </form>
+                </div>
+              </>
+            ) : assignmentReviewError ? (
+              <p className="form-error">{assignmentReviewError}</p>
+            ) : null}
           </section>
         </div>
       )}

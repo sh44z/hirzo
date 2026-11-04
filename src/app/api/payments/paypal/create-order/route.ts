@@ -7,7 +7,10 @@ import {
   JOB_POSTING_PLANS,
 } from "@/lib/job-posting-plans";
 import { createJobForPayment } from "@/lib/job-posting";
-import { normalizeQualificationQuestions } from "@/lib/questions";
+import {
+  normalizeAssignmentTemplate,
+  normalizeQualificationQuestions,
+} from "@/lib/questions";
 import { createPaidJobPostingSchema } from "@/lib/validations";
 import { JobPostingPayment } from "@/models/JobPostingPayment";
 import { Employer } from "@/models/Employer";
@@ -80,6 +83,9 @@ export async function POST(request: NextRequest) {
           parsed.data.qualificationQuestions,
         ),
         requirements: parsed.data.requirements,
+        defaultAssignment: normalizeAssignmentTemplate(
+          parsed.data.defaultAssignment,
+        ),
       },
     };
     let payment;

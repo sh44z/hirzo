@@ -45,6 +45,26 @@ export interface VideoAnswer {
   videoUrl: string;
 }
 
+export type AssignmentQuestionType =
+  | "long_text"
+  | "multiple_choice"
+  | "file_upload"
+  | "video_link";
+
+export interface AssignmentQuestion {
+  id: string;
+  question: string;
+  type: AssignmentQuestionType;
+  options?: string[];
+  required: boolean;
+}
+
+export interface AssignmentTemplate {
+  instructions: string;
+  timeLimitHours?: number;
+  questions: AssignmentQuestion[];
+}
+
 export interface JobRequirements {
   skills: string[];
   yearsExperience: number;

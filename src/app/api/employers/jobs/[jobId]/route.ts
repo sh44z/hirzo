@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth";
 import { updateJobSchema } from "@/lib/validations";
 import {
+  normalizeAssignmentTemplate,
   normalizeQualificationQuestions,
   normalizeVideoQuestions,
 } from "@/lib/questions";
@@ -36,6 +37,7 @@ function serializeJob(job: InstanceType<typeof Job>) {
     requirements: job.requirements,
     qualificationQuestions: job.qualificationQuestions,
     videoQuestions: job.videoQuestions,
+    defaultAssignment: job.defaultAssignment,
     expiresAt: job.expiresAt,
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
@@ -130,6 +132,11 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
     if (updates.videoQuestions !== undefined) {
       job.videoQuestions = normalizeVideoQuestions(updates.videoQuestions);
+    }
+    if (updates.defaultAssignment !== undefined) {
+      job.defaultAssignment = normalizeAssignmentTemplate(
+        updates.defaultAssignment ?? undefined,
+      );
     }
     if (updates.requirements !== undefined) {
       job.requirements = updates.requirements;

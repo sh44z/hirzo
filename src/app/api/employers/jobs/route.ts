@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import { Job } from "@/models/Job";
 import { Application } from "@/models/Application";
 import { MatchResult } from "@/models/MatchResult";
+import { Assignment } from "@/models/Assignment";
 import { calculateMatchScore } from "@/lib/job-matching";
 import type { CandidateProfile } from "@/types";
 
@@ -34,6 +35,30 @@ export async function GET() {
           .select("applicationId score")
           .lean()
       : [];
+    const assignments = applications.length
+      ? await (async () => {
+          const now = new Date();
+          await Assignment.updateMany(
+            {
+              employerId: session.employerId,
+              status: { $in: ["sent", "in_progress"] },
+              $or: [
+                { invitationExpiresAt: { $lte: now } },
+                { deadline: { $lte: now } },
+              ],
+            },
+            { $set: { status: "expired" } },
+          );
+          return Assignment.find({
+            employerId: session.employerId,
+            applicationId: {
+              $in: applications.map((application) => application._id),
+            },
+          })
+            .select("applicationId status rating decision")
+            .lean();
+        })()
+      : [];
     const scoresByApplicationId = new Map(
       matchResults.map((result) => [
         result.applicationId.toString(),
@@ -41,6 +66,12 @@ export async function GET() {
       ]),
     );
     const applicationsByJobId = new Map<string, typeof applications>();
+    const assignmentByApplicationId = new Map(
+      assignments.map((assignment) => [
+        assignment.applicationId.toString(),
+        assignment,
+      ]),
+    );
     for (const application of applications) {
       const key = String(application.jobId);
       const jobApplications = applicationsByJobId.get(key) || [];
@@ -61,6 +92,9 @@ export async function GET() {
             const storedScore = scoresByApplicationId.get(
               String(application._id),
             );
+            const assignment = assignmentByApplicationId.get(
+              String(application._id),
+            );
             const score =
               job.postingPlan === "premium" && profile
                 ? storedScore ??
@@ -78,6 +112,15 @@ export async function GET() {
               createdAt: application.createdAt,
               score,
               hasScannedCv: Boolean(profile),
+              candidateProfile: profile,
+              assignment: assignment
+                ? {
+                    id:                     String(assignment._id),
+                    status: assignment.status,
+                    rating: assignment.rating,
+                    decision: assignment.decision,
+                  }
+                : undefined,
             };
           },
         ),

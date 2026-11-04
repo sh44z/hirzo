@@ -6,6 +6,7 @@ import type {
   VideoQuestion,
   JobRequirements,
   WorkplaceType,
+  AssignmentTemplate,
 } from "@/types";
 import type { JobPostingPlan } from "@/lib/job-posting-plans";
 
@@ -31,6 +32,7 @@ export interface IJob {
   paymentId?: mongoose.Types.ObjectId;
   qualificationQuestions: QualificationQuestion[];
   videoQuestions: VideoQuestion[];
+  defaultAssignment?: AssignmentTemplate;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -57,6 +59,37 @@ const VideoQuestionSchema = new Schema(
     question: { type: String, required: true },
     maxDurationSeconds: { type: Number, default: 120 },
     required: { type: Boolean, default: true },
+  },
+  { _id: false },
+);
+
+const AssignmentQuestionSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    question: { type: String, required: true, trim: true },
+    type: {
+      type: String,
+      enum: ["long_text", "multiple_choice", "file_upload", "video_link"],
+      required: true,
+    },
+    options: { type: [String], default: undefined },
+    required: { type: Boolean, default: true },
+  },
+  { _id: false },
+);
+
+const AssignmentTemplateSchema = new Schema(
+  {
+    instructions: { type: String, trim: true, maxlength: 3000, default: "" },
+    timeLimitHours: { type: Number, min: 1, max: 720 },
+    questions: {
+      type: [AssignmentQuestionSchema],
+      default: [],
+      validate: {
+        validator: (questions: unknown[]) => questions.length <= 20,
+        message: "An assignment can contain at most 20 questions",
+      },
+    },
   },
   { _id: false },
 );
@@ -136,6 +169,10 @@ const JobSchema = new Schema<IJob>(
     videoQuestions: {
       type: [VideoQuestionSchema],
       default: [],
+    },
+    defaultAssignment: {
+      type: AssignmentTemplateSchema,
+      default: undefined,
     },
   },
   { timestamps: true },

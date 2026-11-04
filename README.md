@@ -19,6 +19,7 @@ Required:
 - `ADMIN_INITIAL_PASSWORD` — unique initial password for `admin@hirzo.com` (at least 12 characters recommended). The initial master account is created when it first signs in; it is never provisioned with a hard-coded password.
 - `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` — server-only PayPal REST app credentials
 - `PAYPAL_MODE` — `live` for real payments; use `sandbox` only for testing
+- `RESEND_API_KEY` and `RESEND_FROM_EMAIL` — optional Resend credentials for candidate assignment invitations. If omitted or delivery fails, the employer can copy the secure link and send it manually.
 
 Put real local values in `.env.local`; keep `.env.example` as a placeholder-only template. `.env.local` is ignored by Git and must not be committed. For Vercel, configure the same required values in the project's Environment Variables settings.
 
@@ -43,7 +44,9 @@ npm install
 npm run dev
 ```
 
-Visit `/` for the public job board, `/workspace` for employer registration/sign-in and job management, and `/backoffice` for platform administration. Employers can edit a job's title, description, location, employment type, salary, and visibility, or delete a post from the workspace. Employers can optionally upload a PNG, JPEG, or WebP company logo (up to 500 KB) during registration; it appears on their job listings. Premium posts appear as featured roles and can be found with the Featured filter. Set `ADMIN_INITIAL_PASSWORD` before the first admin login. Signed-in admins can create and deactivate additional master accounts.
+Visit `/` for the public job board, `/workspace` for employer registration/sign-in and job management, and `/backoffice` for platform administration. Employers can edit a job's title, description, location, employment type, salary, visibility, and optional default candidate assignment, or delete a post from the workspace. Employers can optionally upload a PNG, JPEG, or WebP company logo (up to 500 KB) during registration; it appears on their job listings. Premium posts appear as featured roles and can be found with the Featured filter. Set `ADMIN_INITIAL_PASSWORD` before the first admin login. Signed-in admins can create and deactivate additional master accounts.
+
+Employers can create a job-level assignment template with long responses, multiple choice, file uploads, or video/audio links, then customize and send it while shortlisting a candidate. Invitations use a random token stored as a hash, expire after 14 days if unopened, and start an optional time limit on first open. Candidate text drafts are saved in that browser's local storage. Assignment files are limited to 8 MB each and 12 MB total. Configure both optional Resend variables to email invitations automatically; otherwise, the workspace provides a secure link and email-draft option. Submissions and internal ratings/decisions/feedback appear in the employer workspace.
 
 Each job requirements category (skills, qualifications, responsibilities, and other requirements) accepts up to 100 items, with each item limited to 200 characters.
 
@@ -138,6 +141,9 @@ Create/update job body example:
 | `POST` | `/api/employers/jobs/:jobId/match-results` | Recalculate and save premium applicant scores |
 | `GET` | `/api/employers/applications/:applicationId` | Review CV + answers |
 | `PATCH` | `/api/employers/applications/:applicationId` | Update pipeline status |
+| `POST` | `/api/employers/applications/:applicationId/assignment` | Shortlist and issue an assignment link |
+| `GET` / `PATCH` | `/api/employers/assignments/:assignmentId` | Read submitted answers or save an internal scorecard |
+| `GET` | `/api/employers/assignments/:assignmentId/files/:questionId` | Download a submitted assignment file |
 
 Status values: `applied` → `shortlisted` → `interview` → `hired` (or `rejected`).
 
@@ -154,6 +160,7 @@ Setting status to `interview` generates an invite token for later candidate emai
 | `GET` | `/api/jobs/public` | Published jobs |
 | `GET` | `/api/employers/:employerId/logo` | Public company logo image |
 | `POST` | `/api/applications` | Apply without an account |
+| `GET` / `POST` | `/api/assignments/:token` | Open and submit an assignment without an account |
 
 ## Pipeline
 
@@ -164,13 +171,15 @@ Employer registers/logs in
   → premium jobs are featured and score applicants against role requirements
   → candidate applies with an optional .doc or .docx CV (text extracted server-side)
   → employer reviews CV & answers
-  → shortlist / interview / hire / reject
+  → shortlist and optionally send an assignment
+  → candidate submits using a secure, account-free link
+  → employer reviews responses and scores the submission
+  → interview / hire / reject
 ```
 
 ## Next
 
-- Candidate application and video upload UI
-- Candidate email invite login for interviews
+- Candidate video/audio responses currently use external links; direct media recording/upload can be added later. invite login for interviews
 
 Match scores are decision-support signals, not hiring decisions. Skills, experience,
 qualifications, and other role requirements can be weighted per job; weights must total

@@ -35,6 +35,13 @@ export interface VideoQuestion {
   required: boolean;
 }
 
+export interface VirtualInterviewQuestion {
+  id: string;
+  question: string;
+  maxDurationSeconds: number;
+  required: boolean;
+}
+
 export interface QualificationAnswer {
   questionId: string;
   answer: string;
@@ -43,6 +50,13 @@ export interface QualificationAnswer {
 export interface VideoAnswer {
   questionId: string;
   videoUrl: string;
+}
+
+export interface VirtualInterviewAnswer {
+  questionId: string;
+  fileId: string;
+  mimeType: string;
+  expiresAt: Date;
 }
 
 export type AssignmentQuestionType =

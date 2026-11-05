@@ -218,8 +218,12 @@ export default function CandidateAssignmentPage() {
             <form className="form-stack candidate-assignment-form" onSubmit={submitAssignment}>
               {assignment.questions.map((question) => (
                 <label key={question.id}>
-                  {question.question}
-                  {question.required && <span className="required-mark"> *</span>}
+                  <span className="candidate-assignment-question-title">
+                    {question.question}
+                    {question.required && (
+                      <span className="required-mark"> *</span>
+                    )}
+                  </span>
                   {question.type === "long_text" ? (
                     <textarea
                       rows={6}

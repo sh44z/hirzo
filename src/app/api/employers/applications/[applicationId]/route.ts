@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
-import { nanoid } from "nanoid";
 import { connectDB } from "@/lib/db";
 import {
   requireEmployerSession,
@@ -34,6 +33,12 @@ function serializeApplication(app: InstanceType<typeof Application>) {
     notes: app.notes,
     interviewToken: app.interviewToken,
     interviewTokenExpiresAt: app.interviewTokenExpiresAt,
+    virtualInterviewStatus: app.virtualInterviewSubmittedAt
+      ? "submitted"
+      : app.virtualInterviewTokenHash
+        ? "invited"
+        : "not_invited",
+    virtualInterviewSubmittedAt: app.virtualInterviewSubmittedAt,
     createdAt: app.createdAt,
     updatedAt: app.updatedAt,
   };
@@ -134,16 +139,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (!application) return notFound("Application not found");
 
     if (parsed.data.status === "interview") {
-      const job = await Job.findOne({
-        _id: application.jobId,
-        employerId: session.employerId,
-      }).select("postingPlan");
-      if (!job || job.postingPlan === "basic") {
-        return NextResponse.json(
-          { error: "Interview services are available with Premium and Full Recruitment." },
-          { status: 403 },
-        );
-      }
+      return NextResponse.json(
+        { error: "Send the virtual interview invitation after the assignment has been passed." },
+        { status: 409 },
+      );
     }
 
     application.status = parsed.data.status;
@@ -151,32 +150,11 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       application.notes = parsed.data.notes;
     }
 
-    if (parsed.data.status === "interview") {
-      // Issue invite token for candidate email login (portal comes next)
-      application.interviewToken = nanoid(32);
-      application.interviewTokenExpiresAt = new Date(
-        Date.now() + 1000 * 60 * 60 * 24 * 14,
-      );
-    } else {
-      application.interviewToken = undefined;
-      application.interviewTokenExpiresAt = undefined;
-    }
-
     await application.save();
 
     return NextResponse.json({
       application: serializeApplication(application),
-      interviewInvite:
-        application.status === "interview"
-          ? {
-              email: application.candidateEmail,
-              token: application.interviewToken,
-              expiresAt: application.interviewTokenExpiresAt,
-              // Candidate portal will use this later
-              loginHint:
-                "Candidate can log in with their email + this invite token",
-            }
-          : null,
+      interviewInvite: null,
     });
   } catch (error) {
     console.error("Update application error:", error);

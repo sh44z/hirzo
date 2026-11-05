@@ -995,10 +995,12 @@ export default function Home() {
                   )}
                   {selected.qualificationQuestions?.map((question) => (
                     <label key={question.id}>
-                      {question.question}
-                      {question.required && (
-                        <span className="required-label">Required</span>
-                      )}
+                      <span className="application-question-title">
+                        {question.question}
+                        {question.required && (
+                          <span className="required-label">Required</span>
+                        )}
+                      </span>
                       {question.type === "multiple_choice" ? (
                         <select
                           name={`qualification-${question.id}`}
@@ -1038,9 +1040,11 @@ export default function Home() {
                   ))}
                   {selected.videoQuestions?.map((question) => (
                     <label key={question.id}>
-                      {question.question}{" "}
-                      <span className="optional-label">
-                        Video link · up to {Math.floor(question.maxDurationSeconds / 60)} min
+                      <span className="application-question-title">
+                        {question.question}{" "}
+                        <span className="optional-label">
+                          Video link · up to {Math.floor(question.maxDurationSeconds / 60)} min
+                        </span>
                       </span>
                       <input
                         name={`video-${question.id}`}

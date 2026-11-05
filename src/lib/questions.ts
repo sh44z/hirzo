@@ -4,6 +4,7 @@ import type {
   AssignmentTemplate,
   QualificationQuestion,
   VideoQuestion,
+  VirtualInterviewQuestion,
 } from "@/types";
 
 type IncomingQualification = {
@@ -21,6 +22,24 @@ type IncomingVideo = {
   maxDurationSeconds?: number;
   required?: boolean;
 };
+
+type IncomingVirtualInterviewQuestion = {
+  id?: string;
+  question: string;
+  maxDurationSeconds?: number;
+  required?: boolean;
+};
+
+export function normalizeVirtualInterviewQuestions(
+  questions: IncomingVirtualInterviewQuestion[] = [],
+): VirtualInterviewQuestion[] {
+  return questions.map((question) => ({
+    id: question.id || nanoid(),
+    question: question.question.trim(),
+    maxDurationSeconds: question.maxDurationSeconds ?? 120,
+    required: question.required ?? true,
+  }));
+}
 
 export function normalizeQualificationQuestions(
   questions: IncomingQualification[] = [],

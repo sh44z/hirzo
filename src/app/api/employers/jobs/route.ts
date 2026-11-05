@@ -3,6 +3,7 @@ import { requireEmployerSession, serverError } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
 import { Job } from "@/models/Job";
 import { Application } from "@/models/Application";
+import type { IApplication } from "@/models/Application";
 import { MatchResult } from "@/models/MatchResult";
 import { Assignment } from "@/models/Assignment";
 import { calculateMatchScore } from "@/lib/job-matching";
@@ -23,7 +24,7 @@ export async function GET() {
           employerId: session.employerId,
           jobId: { $in: jobs.map((job) => job._id) },
         })
-          .select("jobId candidateName candidateEmail candidatePhone cvFileName candidateProfile status createdAt")
+          .select("jobId candidateName candidateEmail candidatePhone cvFileName candidateProfile status createdAt virtualInterviewQuestions virtualInterviewAnswers virtualInterviewSubmittedAt")
           .sort({ createdAt: -1 })
           .lean()
       : [];
@@ -121,6 +122,23 @@ export async function GET() {
                     decision: assignment.decision,
                   }
                 : undefined,
+              virtualInterviewSubmittedAt:
+                application.virtualInterviewSubmittedAt,
+              virtualInterviewAnswers: application.virtualInterviewAnswers
+                .filter(
+                  (answer: IApplication["virtualInterviewAnswers"][number]) =>
+                    answer.expiresAt.getTime() > Date.now(),
+                )
+                .map((answer: IApplication["virtualInterviewAnswers"][number]) => ({
+                  questionId: answer.questionId,
+                  question:
+                    application.virtualInterviewQuestions.find(
+                      (question: IApplication["virtualInterviewQuestions"][number]) =>
+                        question.id === answer.questionId,
+                    )?.question || "Video response",
+                  expiresAt: answer.expiresAt,
+                  videoUrl: `/api/employers/applications/${String(application._id)}/interview-videos/${encodeURIComponent(answer.questionId)}`,
+                })),
             };
           },
         ),

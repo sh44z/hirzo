@@ -322,6 +322,7 @@ button { color: inherit; }
 .auth-card > .muted { margin: 0 0 25px; font-size: 12px; }
 .form-stack { display: flex; flex-direction: column; gap: 15px; }
 .form-stack label { display: flex; flex-direction: column; gap: 7px; color: #5f5b53; font-size: 10px; font-weight: 600; }
+.application-question-title { display: block; width: 100%; }
 .form-stack input, .form-stack textarea, .form-stack select { width: 100%; min-height: 42px; padding: 0 11px; border: 1px solid #e6e4df; border-radius: 5px; outline: none; background: #fffefa; color: #49463e; font-size: 11px; font-weight: 400; }
 .form-stack textarea { min-height: auto; padding: 10px 11px; resize: vertical; line-height: 1.6; }
 .form-stack input:focus, .form-stack textarea:focus, .form-stack select:focus { border-color: #b4aa92; box-shadow: 0 0 0 3px rgba(180, 170, 146, .14); }
@@ -656,8 +657,16 @@ button { color: inherit; }
 
 .assignment-template-editor { margin: 3px 0 0; }
 .assignment-question-editor { padding: 14px; border: 1px solid #eeece6; border-radius: 6px; background: #fbfaf6; }
+.assignment-question-editor > label { display: flex; width: 100%; min-width: 0; flex-direction: column; align-items: stretch; gap: 7px; }
+.assignment-question-editor > label > textarea { width: 100%; min-width: 0; }
 .assignment-question-actions { display: flex; align-items: center; justify-content: space-between; }
 .assignment-question-actions .question-required-toggle { margin: 0; }
+.interview-template-editor { margin-top: 3px; }
+.interview-question-settings { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: end; gap: 12px; margin-top: 12px; }
+.interview-question-settings > label:not(.question-required-toggle) { display: flex; min-width: 0; flex-direction: column; gap: 7px; }
+.interview-question-settings select { min-height: 38px; padding: 0 10px; border: 1px solid #e6e4df; border-radius: 5px; background: #fffefa; color: #49463e; font-size: 11px; }
+.virtual-interview-submitted { display: inline-flex; align-items: center; width: fit-content; margin: 8px 8px 0 0; padding: 4px 7px; border-radius: 999px; background: #f0f7ef; color: #537354; font-size: 9px; }
+.virtual-interview-video-link { display: inline-block; margin: 8px 8px 0 0; color: #62583f; font-size: 10px; font-weight: 600; text-decoration: underline; }
 .assignment-status-pill { display: inline-flex; align-items: center; width: fit-content; margin: 7px 7px 0 0; padding: 4px 7px; border: 1px solid #e8e4da; border-radius: 999px; background: #f7f5ef; color: #71684e; font-size: 9px; text-transform: capitalize; }
 .assignment-status-pill.submitted { border-color: #d7e5d7; background: #f0f7ef; color: #537354; }
 .assignment-status-pill.reviewed { border-color: #d9deed; background: #f1f3fa; color: #5b6686; }
@@ -694,11 +703,19 @@ button { color: inherit; }
 .assignment-countdown strong { font-size: 13px; }
 .candidate-assignment-form { padding-top: 13px; }
 .candidate-assignment-form label { line-height: 1.5; }
+.candidate-assignment-question-title { display: block; width: 100%; }
 .candidate-assignment-form label > input[type="file"] { padding: 10px; }
 .candidate-assignment-form .field-hint { display: block; margin-top: -3px; }
 .required-mark { color: #a45b47; }
 .candidate-assignment-submit { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding-top: 6px; }
 .candidate-assignment-submit > span { color: #8d897f; font-size: 10px; }
+.interview-recording-note { margin: 12px 0 0; color: #79756d; font-size: 11px; }
+.interview-question { display: flex; flex-direction: column; gap: 9px; padding: 16px; border: 1px solid #eceae4; border-radius: 6px; background: #fbfaf7; }
+.interview-question h2 { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; color: #4b463a; font-size: 12px; }
+.interview-question h2 > span:first-child { font-weight: 700; }
+.interview-question h2 .required-mark { font-size: 9px; }
+.interview-question p { margin: 0; color: #5f5b53; font-size: 13px; line-height: 1.65; }
+.interview-video-preview { width: min(100%, 480px); max-height: 320px; border-radius: 6px; background: #292929; }
 .assignment-message { padding: 56px 10px 35px; text-align: center; }
 .assignment-message h2 { margin: 0 0 9px; color: #403b31; font: 25px Georgia, serif; }
 .assignment-message p { max-width: 440px; margin: 0 auto; color: #858178; font-size: 12px; line-height: 1.7; }
@@ -710,4 +727,10 @@ button { color: inherit; }
   .candidate-assignment-card { padding: 21px 16px; }
   .candidate-assignment-header h1 { font-size: 21px; }
   .candidate-assignment-submit { align-items: stretch; flex-direction: column; }
+  .assignment-question-editor { padding: 12px; }
+  .assignment-question-editor > label { gap: 8px; }
+  .interview-question-settings { grid-template-columns: 1fr; align-items: stretch; gap: 8px; }
+  .interview-question-settings .question-required-toggle { padding: 5px 0; }
+  .interview-question-settings .button { justify-self: start; }
+  .interview-question { padding: 13px; }
 }

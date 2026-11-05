@@ -13,6 +13,7 @@ import type {
   AssignmentQuestion,
   AssignmentQuestionType,
   AssignmentTemplate,
+  VirtualInterviewQuestion,
 } from "@/types";
 
 type AssignmentSummary = {
@@ -49,6 +50,7 @@ type Job = {
   postingPrice?: number;
   featured?: boolean;
   defaultAssignment?: AssignmentTemplate;
+  interviewQuestions: VirtualInterviewQuestion[];
   createdAt: string;
   expiresAt: string;
   applicants: Applicant[];
@@ -69,6 +71,13 @@ type Applicant = {
     qualifications: string[];
   };
   assignment?: AssignmentSummary;
+  virtualInterviewSubmittedAt?: string;
+  virtualInterviewAnswers?: Array<{
+    questionId: string;
+    question: string;
+    videoUrl: string;
+    expiresAt: string;
+  }>;
 };
 
 type ApplicantFilter = "all" | "shortlisted" | "interview";
@@ -263,6 +272,113 @@ function AssignmentTemplateEditor({
   );
 }
 
+function VirtualInterviewQuestionsEditor({
+  questions,
+  onChange,
+}: {
+  questions: VirtualInterviewQuestion[];
+  onChange: (questions: VirtualInterviewQuestion[]) => void;
+}) {
+  function updateQuestion(
+    index: number,
+    update: Partial<VirtualInterviewQuestion>,
+  ) {
+    onChange(
+      questions.map((question, questionIndex) =>
+        questionIndex === index ? { ...question, ...update } : question,
+      ),
+    );
+  }
+
+  return (
+    <fieldset className="qualification-editor interview-template-editor">
+      <legend>
+        Virtual interview questions{" "}
+        <span className="optional-label">Optional · Premium</span>
+      </legend>
+      <p className="field-hint">
+        Applicants who pass your assignment can record video answers to these
+        questions before a live interview.
+      </p>
+      {questions.map((question, index) => (
+        <div className="assignment-question-editor" key={question.id}>
+          <label>
+            Interview question {index + 1}
+            <textarea
+              rows={2}
+              minLength={3}
+              maxLength={500}
+              required
+              value={question.question}
+              onChange={(event) =>
+                updateQuestion(index, { question: event.target.value })
+              }
+              placeholder="What would you like the candidate to answer on video?"
+            />
+          </label>
+          <div className="interview-question-settings">
+            <label>
+              Maximum video length
+              <select
+                value={question.maxDurationSeconds}
+                onChange={(event) =>
+                  updateQuestion(index, {
+                    maxDurationSeconds: Number(event.target.value),
+                  })
+                }
+              >
+                <option value="60">1 minute</option>
+                <option value="120">2 minutes</option>
+                <option value="180">3 minutes</option>
+                <option value="300">5 minutes</option>
+              </select>
+            </label>
+            <label className="question-required-toggle">
+              <input
+                type="checkbox"
+                checked={question.required}
+                onChange={(event) =>
+                  updateQuestion(index, { required: event.target.checked })
+                }
+              />
+              Required
+            </label>
+            <button
+              type="button"
+              className="button button-light small-button"
+              onClick={() =>
+                onChange(
+                  questions.filter((_, questionIndex) => questionIndex !== index),
+                )
+              }
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ))}
+      <button
+        type="button"
+        className="button button-light add-question"
+        disabled={questions.length >= 10}
+        onClick={() =>
+          onChange([
+            ...questions,
+            {
+              id: crypto.randomUUID(),
+              question: "",
+              maxDurationSeconds: 120,
+              required: true,
+            },
+          ])
+        }
+      >
+        ＋ Add interview question
+      </button>
+    </fieldset>
+  );
+}
+
 const applicationStages: Array<{ value: ApplicationStatus; label: string }> = [
   { value: "applied", label: "Applied" },
   { value: "shortlisted", label: "Shortlisted" },
@@ -357,6 +473,12 @@ export default function WorkspacePage() {
   );
   const [editDefaultAssignment, setEditDefaultAssignment] =
     useState<AssignmentTemplate>(emptyAssignmentTemplate);
+  const [interviewQuestions, setInterviewQuestions] = useState<
+    VirtualInterviewQuestion[]
+  >([]);
+  const [editInterviewQuestions, setEditInterviewQuestions] = useState<
+    VirtualInterviewQuestion[]
+  >([]);
   const [selectedPlan, setSelectedPlan] = useState<JobPostingPlan>("basic");
   const [updatingApplicant, setUpdatingApplicant] = useState("");
   const [applicantFilters, setApplicantFilters] = useState<
@@ -381,6 +503,13 @@ export default function WorkspacePage() {
   } | null>(null);
   const [sendingAssignment, setSendingAssignment] = useState(false);
   const [copiedAssignmentLink, setCopiedAssignmentLink] = useState(false);
+  const [virtualInterviewInvite, setVirtualInterviewInvite] = useState<{
+    candidateName: string;
+    candidateEmail: string;
+    url: string;
+    emailMessage: string;
+  } | null>(null);
+  const [copiedInterviewLink, setCopiedInterviewLink] = useState(false);
   const [assignmentReview, setAssignmentReview] =
     useState<AssignmentReview | null>(null);
   const [assignmentReviewOpen, setAssignmentReviewOpen] = useState(false);
@@ -577,6 +706,12 @@ export default function WorkspacePage() {
               })),
             }
           : undefined,
+      interviewQuestions: interviewQuestions
+        .map((question) => ({
+          ...question,
+          question: question.question.trim(),
+        }))
+        .filter((question) => question.question),
       requirements: {
         skills: String(form.get("skills") || "")
           .split(/\n|,/)
@@ -637,6 +772,7 @@ export default function WorkspacePage() {
     setError("");
     setQualificationQuestions([]);
     setDefaultAssignment(emptyAssignmentTemplate());
+    setInterviewQuestions([]);
     setSelectedPlan("basic");
     setShowCreate(true);
   }
@@ -718,6 +854,12 @@ export default function WorkspacePage() {
               })),
             }
           : null,
+      interviewQuestions: editInterviewQuestions
+        .map((question) => ({
+          ...question,
+          question: question.question.trim(),
+        }))
+        .filter((question) => question.question),
     };
     try {
       const response = await fetch(`/api/employers/jobs/${editingJob.id}`, {
@@ -908,6 +1050,44 @@ export default function WorkspacePage() {
         setSendingAssignment(false);
       }
     }
+
+  async function sendVirtualInterview(applicant: Applicant) {
+    setUpdatingApplicant(applicant.id);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/employers/applications/${applicant.id}/virtual-interview`,
+        { method: "POST" },
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Could not send this video interview.");
+      }
+      setJobs((current) =>
+        current.map((job) => ({
+          ...job,
+          applicants: job.applicants.map((item) =>
+            item.id === applicant.id ? { ...item, status: "interview" } : item,
+          ),
+        })),
+      );
+      setVirtualInterviewInvite({
+        candidateName: applicant.candidateName,
+        candidateEmail: applicant.candidateEmail,
+        url: data.interview.url,
+        emailMessage: data.emailMessage,
+      });
+      setCopiedInterviewLink(false);
+    } catch (inviteError) {
+      setError(
+        inviteError instanceof Error
+          ? inviteError.message
+          : "Could not send this video interview.",
+      );
+    } finally {
+      setUpdatingApplicant("");
+    }
+  }
 
   async function openAssignmentReview(applicant: Applicant) {
       if (!applicant.assignment) return;
@@ -1406,6 +1586,9 @@ export default function WorkspacePage() {
                               ? structuredClone(job.defaultAssignment)
                               : emptyAssignmentTemplate(),
                           );
+                          setEditInterviewQuestions(
+                            structuredClone(job.interviewQuestions || []),
+                          );
                           setEditingJob(job);
                         }}
                       >
@@ -1561,7 +1744,8 @@ export default function WorkspacePage() {
                                         value={stage.value}
                                         disabled={
                                           stage.value === "interview" &&
-                                          job.postingPlan === "basic"
+                                          (job.postingPlan === "basic" ||
+                                            applicant.status !== "interview")
                                         }
                                       >
                                         {stage.label}
@@ -1599,6 +1783,44 @@ export default function WorkspacePage() {
                                       : "Review assignment"}
                                   </button>
                                 ) : null}
+                                {applicant.assignment?.status === "reviewed" &&
+                                  applicant.assignment.decision === "pass" &&
+                                  applicant.status === "shortlisted" &&
+                                  job.interviewQuestions?.length > 0 && (
+                                    <button
+                                      className="button button-light small-button"
+                                      disabled={updatingApplicant === applicant.id}
+                                      onClick={() =>
+                                        void sendVirtualInterview(applicant)
+                                      }
+                                    >
+                                      {updatingApplicant === applicant.id
+                                        ? "Sending…"
+                                        : "Send video interview"}
+                                    </button>
+                                  )}
+                                {applicant.virtualInterviewSubmittedAt && (
+                                  <span className="virtual-interview-submitted">
+                                    Video interview submitted
+                                  </span>
+                                )}
+                                {applicant.virtualInterviewAnswers
+                                  ?.filter(
+                                    (answer) =>
+                                      new Date(answer.expiresAt).getTime() >
+                                      Date.now(),
+                                  )
+                                  .map((answer) => (
+                                    <a
+                                      className="virtual-interview-video-link"
+                                      href={answer.videoUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      key={answer.questionId}
+                                    >
+                                      Watch: {answer.question}
+                                    </a>
+                                  ))}
                                 <button
                                   className="button button-light small-button"
                                   disabled={updatingApplicant === applicant.id}
@@ -1953,6 +2175,10 @@ export default function WorkspacePage() {
                 template={defaultAssignment}
                 onChange={setDefaultAssignment}
               />
+              <VirtualInterviewQuestionsEditor
+                questions={interviewQuestions}
+                onChange={setInterviewQuestions}
+              />
               <label>
                 Visibility after payment
                 <select name="status" defaultValue="published">
@@ -2093,6 +2319,10 @@ export default function WorkspacePage() {
               <AssignmentTemplateEditor
                 template={editDefaultAssignment}
                 onChange={setEditDefaultAssignment}
+              />
+              <VirtualInterviewQuestionsEditor
+                questions={editInterviewQuestions}
+                onChange={setEditInterviewQuestions}
               />
               <label>
                 Visibility
@@ -2349,6 +2579,61 @@ export default function WorkspacePage() {
                 }}
               >
                 {copiedAssignmentLink ? "Link copied" : "Copy link"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {virtualInterviewInvite && (
+        <div className="modal-backdrop">
+          <section
+            className="job-modal assignment-invite-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="virtual-interview-invite-title"
+          >
+            <div className="modal-heading">
+              <div>
+                <div className="eyebrow">VIDEO INTERVIEW INVITATION</div>
+                <h2 id="virtual-interview-invite-title">Interview ready</h2>
+              </div>
+              <button
+                className="icon-button close-button"
+                aria-label="Close"
+                onClick={() => setVirtualInterviewInvite(null)}
+              >
+                ×
+              </button>
+            </div>
+            <p className="muted">{virtualInterviewInvite.emailMessage}</p>
+            <label>
+              Secure candidate link
+              <input readOnly value={virtualInterviewInvite.url} />
+            </label>
+            <div className="modal-actions">
+              <button
+                className="button button-light"
+                onClick={() => setVirtualInterviewInvite(null)}
+              >
+                Done
+              </button>
+              <a
+                className="button button-light"
+                href={`mailto:${encodeURIComponent(virtualInterviewInvite.candidateEmail)}?subject=${encodeURIComponent("Your video interview invitation")}&body=${encodeURIComponent(`Hi ${virtualInterviewInvite.candidateName},\n\nPlease complete your video interview using this secure link:\n${virtualInterviewInvite.url}\n\nYour video responses will be automatically deleted after three days.`)}`}
+              >
+                Open email draft
+              </a>
+              <button
+                className="button button-dark"
+                onClick={() => {
+                  void navigator.clipboard
+                    .writeText(virtualInterviewInvite.url)
+                    .then(() => setCopiedInterviewLink(true))
+                    .catch(() => setError("Could not copy the video interview link."));
+                }}
+              >
+                {copiedInterviewLink ? "Link copied" : "Copy link"}
               </button>
             </div>
           </section>

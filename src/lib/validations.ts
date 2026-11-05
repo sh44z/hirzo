@@ -50,6 +50,13 @@ const videoQuestionSchema = z.object({
   required: z.boolean().optional().default(true),
 });
 
+const virtualInterviewQuestionSchema = z.object({
+  id: z.string().min(1).optional(),
+  question: z.string().trim().min(3).max(500),
+  maxDurationSeconds: z.number().int().min(15).max(300).optional().default(120),
+  required: z.boolean().optional().default(true),
+});
+
 const assignmentQuestionSchema = z
   .object({
     id: z.string().min(1).optional(),
@@ -133,6 +140,11 @@ export const createJobSchema = z.object({
     .optional()
     .default([]),
   videoQuestions: z.array(videoQuestionSchema).optional().default([]),
+  interviewQuestions: z
+    .array(virtualInterviewQuestionSchema)
+    .max(10, "A virtual interview can contain at most 10 questions")
+    .optional()
+    .default([]),
   defaultAssignment: assignmentTemplateSchema.optional(),
   requirements: jobRequirementsSchema.default({
     skills: [],

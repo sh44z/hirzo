@@ -10,6 +10,7 @@ import { createJobForPayment } from "@/lib/job-posting";
 import {
   normalizeAssignmentTemplate,
   normalizeQualificationQuestions,
+  normalizeVirtualInterviewQuestions,
 } from "@/lib/questions";
 import { createPaidJobPostingSchema } from "@/lib/validations";
 import { JobPostingPayment } from "@/models/JobPostingPayment";
@@ -81,6 +82,9 @@ export async function POST(request: NextRequest) {
         status: parsed.data.status,
         qualificationQuestions: normalizeQualificationQuestions(
           parsed.data.qualificationQuestions,
+        ),
+        interviewQuestions: normalizeVirtualInterviewQuestions(
+          parsed.data.interviewQuestions,
         ),
         requirements: parsed.data.requirements,
         defaultAssignment: normalizeAssignmentTemplate(

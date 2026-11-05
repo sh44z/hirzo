@@ -12,6 +12,7 @@ import {
   normalizeAssignmentTemplate,
   normalizeQualificationQuestions,
   normalizeVideoQuestions,
+  normalizeVirtualInterviewQuestions,
 } from "@/lib/questions";
 import { Job } from "@/models/Job";
 import { MatchResult } from "@/models/MatchResult";
@@ -37,6 +38,7 @@ function serializeJob(job: InstanceType<typeof Job>) {
     requirements: job.requirements,
     qualificationQuestions: job.qualificationQuestions,
     videoQuestions: job.videoQuestions,
+    interviewQuestions: job.interviewQuestions,
     defaultAssignment: job.defaultAssignment,
     expiresAt: job.expiresAt,
     createdAt: job.createdAt,
@@ -132,6 +134,11 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
     if (updates.videoQuestions !== undefined) {
       job.videoQuestions = normalizeVideoQuestions(updates.videoQuestions);
+    }
+    if (updates.interviewQuestions !== undefined) {
+      job.interviewQuestions = normalizeVirtualInterviewQuestions(
+        updates.interviewQuestions,
+      );
     }
     if (updates.defaultAssignment !== undefined) {
       job.defaultAssignment = normalizeAssignmentTemplate(

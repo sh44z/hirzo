@@ -4,6 +4,7 @@ import type {
   JobStatus,
   QualificationQuestion,
   VideoQuestion,
+  VirtualInterviewQuestion,
   JobRequirements,
   WorkplaceType,
   AssignmentTemplate,
@@ -32,6 +33,7 @@ export interface IJob {
   paymentId?: mongoose.Types.ObjectId;
   qualificationQuestions: QualificationQuestion[];
   videoQuestions: VideoQuestion[];
+  interviewQuestions: VirtualInterviewQuestion[];
   defaultAssignment?: AssignmentTemplate;
   createdAt: Date;
   updatedAt: Date;
@@ -58,6 +60,16 @@ const VideoQuestionSchema = new Schema(
     id: { type: String, required: true },
     question: { type: String, required: true },
     maxDurationSeconds: { type: Number, default: 120 },
+    required: { type: Boolean, default: true },
+  },
+  { _id: false },
+);
+
+const VirtualInterviewQuestionSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    question: { type: String, required: true, trim: true, maxlength: 500 },
+    maxDurationSeconds: { type: Number, min: 15, max: 300, default: 120 },
     required: { type: Boolean, default: true },
   },
   { _id: false },
@@ -168,6 +180,10 @@ const JobSchema = new Schema<IJob>(
     },
     videoQuestions: {
       type: [VideoQuestionSchema],
+      default: [],
+    },
+    interviewQuestions: {
+      type: [VirtualInterviewQuestionSchema],
       default: [],
     },
     defaultAssignment: {

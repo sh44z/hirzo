@@ -4,6 +4,8 @@ import type {
   QualificationAnswer,
   VideoAnswer,
   CandidateProfile,
+  VirtualInterviewQuestion,
+  VirtualInterviewAnswer,
 } from "@/types";
 
 export interface IApplication {
@@ -23,6 +25,11 @@ export interface IApplication {
   status: ApplicationStatus;
   interviewToken?: string;
   interviewTokenExpiresAt?: Date;
+  virtualInterviewTokenHash?: string;
+  virtualInterviewTokenExpiresAt?: Date;
+  virtualInterviewQuestions: VirtualInterviewQuestion[];
+  virtualInterviewAnswers: VirtualInterviewAnswer[];
+  virtualInterviewSubmittedAt?: Date;
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -40,6 +47,26 @@ const VideoAnswerSchema = new Schema(
   {
     questionId: { type: String, required: true },
     videoUrl: { type: String, required: true },
+  },
+  { _id: false },
+);
+
+const VirtualInterviewQuestionSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    question: { type: String, required: true },
+    maxDurationSeconds: { type: Number, required: true },
+    required: { type: Boolean, required: true },
+  },
+  { _id: false },
+);
+
+const VirtualInterviewAnswerSchema = new Schema(
+  {
+    questionId: { type: String, required: true },
+    fileId: { type: String, required: true },
+    mimeType: { type: String, required: true },
+    expiresAt: { type: Date, required: true },
   },
   { _id: false },
 );
@@ -105,6 +132,17 @@ const ApplicationSchema = new Schema<IApplication>(
     },
     interviewToken: { type: String, index: true, sparse: true },
     interviewTokenExpiresAt: { type: Date },
+    virtualInterviewTokenHash: { type: String, index: true, sparse: true },
+    virtualInterviewTokenExpiresAt: { type: Date },
+    virtualInterviewQuestions: {
+      type: [VirtualInterviewQuestionSchema],
+      default: [],
+    },
+    virtualInterviewAnswers: {
+      type: [VirtualInterviewAnswerSchema],
+      default: [],
+    },
+    virtualInterviewSubmittedAt: { type: Date },
     notes: { type: String },
   },
   { timestamps: true },

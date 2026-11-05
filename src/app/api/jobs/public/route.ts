@@ -19,7 +19,7 @@ export async function GET() {
       $or: [{ moderationStatus: "approved" }, { moderationStatus: { $exists: false } }],
     })
       .select(
-        "title description location employmentType workplaceType salaryMin salaryMax currency qualificationQuestions videoQuestions requirements featured postingPlan createdAt expiresAt employerId",
+        "title description location employmentType workplaceType salaryMin salaryMax currency qualificationQuestions requirements featured postingPlan createdAt expiresAt employerId",
       )
       .populate({
         path: "employerId",
@@ -71,7 +71,6 @@ export async function GET() {
                 required,
               }),
             ),
-            videoQuestions: job.videoQuestions,
             requirements: job.requirements,
             featured: job.postingPlan === "premium",
             createdAt: job.createdAt,

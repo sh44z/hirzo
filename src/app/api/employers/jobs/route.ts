@@ -124,7 +124,9 @@ export async function GET() {
                 : undefined,
               virtualInterviewSubmittedAt:
                 application.virtualInterviewSubmittedAt,
-              virtualInterviewAnswers: application.virtualInterviewAnswers
+              virtualInterviewAnswers: (
+                application.virtualInterviewAnswers || []
+              )
                 .filter(
                   (answer: IApplication["virtualInterviewAnswers"][number]) =>
                     answer.expiresAt.getTime() > Date.now(),
@@ -132,7 +134,7 @@ export async function GET() {
                 .map((answer: IApplication["virtualInterviewAnswers"][number]) => ({
                   questionId: answer.questionId,
                   question:
-                    application.virtualInterviewQuestions.find(
+                    (application.virtualInterviewQuestions || []).find(
                       (question: IApplication["virtualInterviewQuestions"][number]) =>
                         question.id === answer.questionId,
                     )?.question || "Video response",

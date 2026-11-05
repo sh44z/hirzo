@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { badRequest, notFound, serverError } from "@/lib/auth";
 import { Assignment } from "@/models/Assignment";
+import { Application } from "@/models/Application";
 import { Employer } from "@/models/Employer";
 import { Job } from "@/models/Job";
 
@@ -28,7 +29,13 @@ function isExpired(assignment: {
 
 async function getActiveAssignment(token: string) {
   if (!token || token.length > 100) return null;
-  return Assignment.findOne({ tokenHash: hashToken(token) });
+  const assignment = await Assignment.findOne({ tokenHash: hashToken(token) });
+  if (!assignment) return null;
+  const application = await Application.exists({
+    _id: assignment.applicationId,
+    status: "shortlisted",
+  });
+  return application ? assignment : null;
 }
 
 export async function GET(_request: NextRequest, { params }: Params) {

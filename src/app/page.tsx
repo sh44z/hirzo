@@ -33,12 +33,6 @@ type Job = {
     type: string;
     options?: string[];
   }>;
-  videoQuestions?: Array<{
-    id: string;
-    question: string;
-    required: boolean;
-    maxDurationSeconds: number;
-  }>;
 };
 
 const filters = [
@@ -103,15 +97,6 @@ function getRoleDetailsDescription(job: Job) {
     details.push(
       "Application questions:",
       ...job.qualificationQuestions.map((question) => `- ${question.question}`),
-    );
-  }
-  if (job.videoQuestions?.length) {
-    details.push(
-      "Video questions:",
-      ...job.videoQuestions.map(
-        (question) =>
-          `- ${question.question} (up to ${Math.floor(question.maxDurationSeconds / 60)} min)`,
-      ),
     );
   }
   return `${job.description}\n\nRole details\n${details.join("\n")}`;
@@ -313,12 +298,6 @@ export default function Home() {
           answer: String(form.get(`qualification-${question.id}`) || ""),
         }))
         .filter((answer) => answer.answer);
-      const videoAnswers = selected.videoQuestions
-        ?.map((question) => ({
-          questionId: question.id,
-          videoUrl: String(form.get(`video-${question.id}`) || ""),
-        }))
-        .filter((answer) => answer.videoUrl);
       const formData = new FormData();
       formData.set("jobId", selected.id);
       formData.set("candidateName", String(form.get("candidateName") || ""));
@@ -328,7 +307,7 @@ export default function Home() {
       if (candidatePhone) formData.set("candidatePhone", candidatePhone);
       if (cvUrl) formData.set("cvUrl", cvUrl);
       formData.set("qualificationAnswers", JSON.stringify(qualificationAnswers));
-      formData.set("videoAnswers", JSON.stringify(videoAnswers));
+      formData.set("videoAnswers", "[]");
       formData.set(
         "confirmQualificationMismatch",
         String(form.get("confirmQualificationMismatch") === "on"),
@@ -1036,22 +1015,6 @@ export default function Home() {
                           placeholder="Your answer"
                         />
                       )}
-                    </label>
-                  ))}
-                  {selected.videoQuestions?.map((question) => (
-                    <label key={question.id}>
-                      <span className="application-question-title">
-                        {question.question}{" "}
-                        <span className="optional-label">
-                          Video link · up to {Math.floor(question.maxDurationSeconds / 60)} min
-                        </span>
-                      </span>
-                      <input
-                        name={`video-${question.id}`}
-                        type="url"
-                        required={question.required}
-                        placeholder="https://…"
-                      />
                     </label>
                   ))}
                   {qualificationMismatches.length > 0 && (

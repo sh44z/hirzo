@@ -172,18 +172,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const requiredVideo = job.videoQuestions.filter(
-      (q: { required: boolean }) => q.required,
-    );
-    for (const question of requiredVideo) {
-      const answer = parsed.data.videoAnswers.find(
-        (a) => a.questionId === question.id,
-      );
-      if (!answer?.videoUrl) {
-        return badRequest(`Missing video answer for: ${question.question}`);
-      }
-    }
-
     const candidateProfile = uploadedCv?.profile || {
       skills: [],
       yearsExperience: null,

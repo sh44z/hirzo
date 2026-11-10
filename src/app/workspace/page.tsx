@@ -1743,7 +1743,11 @@ export default function WorkspacePage() {
                                     onChange={(event) => {
                                       const status = event.target.value as ApplicationStatus;
                                       if (status === "interview") {
-                                        void sendVirtualInterview(applicant);
+                                        if (canInviteVirtualInterview(job)) {
+                                          void sendVirtualInterview(applicant);
+                                        } else {
+                                          void updateApplicantStatus(applicant, status);
+                                        }
                                       } else if (status === "shortlisted") {
                                         openShortlistModal(applicant, job);
                                       } else {
@@ -1755,16 +1759,11 @@ export default function WorkspacePage() {
                                       <option
                                         key={stage.value}
                                         value={stage.value}
-                                        disabled={
-                                          stage.value === "interview" &&
-                                          applicant.status !== "interview" &&
-                                          !canInviteVirtualInterview(job)
-                                        }
                                       >
                                         {stage.label}
                                         {stage.value === "interview" &&
                                         job.postingPlan === "basic"
-                                          ? " (Premium)"
+                                          ? " (video invites require Premium)"
                                           : ""}
                                       </option>
                                     ))}

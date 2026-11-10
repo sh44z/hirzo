@@ -138,13 +138,6 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     if (!application) return notFound("Application not found");
 
-    if (parsed.data.status === "interview") {
-      return NextResponse.json(
-        { error: "Send the virtual interview invitation after the assignment has been passed." },
-        { status: 409 },
-      );
-    }
-
     application.status = parsed.data.status;
     if (parsed.data.notes !== undefined) {
       application.notes = parsed.data.notes;

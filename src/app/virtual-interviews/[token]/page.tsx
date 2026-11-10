@@ -29,6 +29,7 @@ export default function CandidateVirtualInterviewPage() {
   const [now, setNow] = useState(0);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const mediaStream = useRef<MediaStream | null>(null);
+  const livePreview = useRef<HTMLVideoElement>(null);
   const recordingTimer = useRef<number | null>(null);
   const previewUrls = useMemo(
     () =>
@@ -70,12 +71,33 @@ export default function CandidateVirtualInterviewPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const video = livePreview.current;
+    if (video) {
+      video.srcObject = recordingQuestionId ? mediaStream.current : null;
+      if (recordingQuestionId) {
+        void video.play().catch(() => {
+          setError("Could not start the camera preview. Check camera permissions and try again.");
+        });
+      }
+    }
+    return () => {
+      if (video) video.srcObject = null;
+    };
+  }, [recordingQuestionId]);
+
   useEffect(
     () => () => {
       if (recordingTimer.current !== null) {
         window.clearTimeout(recordingTimer.current);
       }
       mediaStream.current?.getTracks().forEach((track) => track.stop());
+    },
+    [],
+  );
+
+  useEffect(
+    () => () => {
       Object.values(previewUrls).forEach((url) => URL.revokeObjectURL(url));
     },
     [previewUrls],
@@ -303,6 +325,19 @@ export default function CandidateVirtualInterviewPage() {
                     Maximum response: {Math.floor(question.maxDurationSeconds / 60)}:
                     {String(question.maxDurationSeconds % 60).padStart(2, "0")}
                   </span>
+                  {recordingQuestionId === question.id && (
+                    <>
+                      <video
+                        ref={livePreview}
+                        className="interview-video-preview"
+                        autoPlay
+                        muted
+                        playsInline
+                        aria-label="Live camera preview"
+                      />
+                      <span className="field-hint">Recording — live preview</span>
+                    </>
+                  )}
                   {recordings[question.id] && previewUrls[question.id] && (
                     <video
                       className="interview-video-preview"

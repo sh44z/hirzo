@@ -67,6 +67,7 @@ const VirtualInterviewAnswerSchema = new Schema(
     fileId: { type: String, required: true },
     mimeType: { type: String, required: true },
     expiresAt: { type: Date, required: true },
+    rating: { type: Number, min: 1, max: 5 },
   },
   { _id: false },
 );

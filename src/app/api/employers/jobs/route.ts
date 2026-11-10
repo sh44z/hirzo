@@ -143,6 +143,7 @@ export async function GET() {
                       (question: IApplication["virtualInterviewQuestions"][number]) =>
                         question.id === answer.questionId,
                     )?.question || "Video response",
+                  rating: answer.rating,
                   expiresAt: answer.expiresAt,
                   videoUrl: `/api/employers/applications/${String(application._id)}/interview-videos/${encodeURIComponent(answer.questionId)}`,
                 })),

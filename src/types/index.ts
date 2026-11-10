@@ -57,6 +57,7 @@ export interface VirtualInterviewAnswer {
   fileId: string;
   mimeType: string;
   expiresAt: Date;
+  rating?: number;
 }
 
 export type AssignmentQuestionType =

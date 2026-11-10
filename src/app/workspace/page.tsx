@@ -78,6 +78,7 @@ type Applicant = {
     question: string;
     videoUrl: string;
     expiresAt: string;
+    rating?: number;
   }>;
 };
 
@@ -1007,6 +1008,50 @@ export default function WorkspacePage() {
     }
   }
 
+  async function saveVirtualInterviewRating(
+    applicant: Applicant,
+    questionId: string,
+    rating: number | null,
+  ) {
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/employers/applications/${applicant.id}/interview-videos/${encodeURIComponent(questionId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rating }),
+        },
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not save video rating.");
+      setJobs((current) =>
+        current.map((job) => ({
+          ...job,
+          applicants: job.applicants.map((item) =>
+            item.id === applicant.id
+              ? {
+                  ...item,
+                  virtualInterviewAnswers: item.virtualInterviewAnswers?.map(
+                    (answer) =>
+                      answer.questionId === questionId
+                        ? { ...answer, rating: data.rating ?? undefined }
+                        : answer,
+                  ),
+                }
+              : item,
+          ),
+        })),
+      );
+    } catch (ratingError) {
+      setError(
+        ratingError instanceof Error
+          ? ratingError.message
+          : "Could not save video rating.",
+      );
+    }
+  }
+
   function openShortlistModal(applicant: Applicant, job: Job) {
     setError("");
     setShortlistTemplate(
@@ -1846,15 +1891,40 @@ export default function WorkspacePage() {
                                       Date.now(),
                                   )
                                   .map((answer) => (
-                                    <a
-                                      className="virtual-interview-video-link"
-                                      href={answer.videoUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
+                                    <section
+                                      className="interview-question"
                                       key={answer.questionId}
                                     >
-                                      Watch: {answer.question}
-                                    </a>
+                                      <strong>{answer.question}</strong>
+                                      <video
+                                        className="interview-video-preview"
+                                        src={answer.videoUrl}
+                                        controls
+                                        playsInline
+                                      />
+                                      <label>
+                                        Rate this answer
+                                        <select
+                                          value={answer.rating ?? ""}
+                                          onChange={(event) =>
+                                            void saveVirtualInterviewRating(
+                                              applicant,
+                                              answer.questionId,
+                                              event.target.value
+                                                ? Number(event.target.value)
+                                                : null,
+                                            )
+                                          }
+                                        >
+                                          <option value="">Not rated</option>
+                                          {[1, 2, 3, 4, 5].map((rating) => (
+                                            <option key={rating} value={rating}>
+                                              {rating} / 5
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </label>
+                                    </section>
                                   ))}
                                 <button
                                   className="button button-light small-button"

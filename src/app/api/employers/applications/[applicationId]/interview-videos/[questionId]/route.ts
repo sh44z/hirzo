@@ -67,3 +67,44 @@ export async function GET(_request: NextRequest, { params }: Params) {
     return serverError();
   }
 }
+
+export async function PATCH(request: NextRequest, { params }: Params) {
+  try {
+    const { session, error } = await requireEmployerSession();
+    if (error || !session) return error!;
+    const { applicationId, questionId } = await params;
+    if (!mongoose.Types.ObjectId.isValid(applicationId)) {
+      return badRequest("Invalid application id");
+    }
+
+    const body = await request.json();
+    const rating = body?.rating;
+    if (
+      rating !== null &&
+      (!Number.isInteger(rating) || rating < 1 || rating > 5)
+    ) {
+      return badRequest("Rating must be a whole number from 1 to 5.");
+    }
+
+    await connectDB();
+    const application = await Application.findOne({
+      _id: applicationId,
+      employerId: session.employerId,
+    }).select("virtualInterviewAnswers");
+    if (!application) return notFound("Application not found");
+    const answer = application.virtualInterviewAnswers.find(
+      (item: IApplication["virtualInterviewAnswers"][number]) =>
+        item.questionId === questionId,
+    );
+    if (!answer || answer.expiresAt.getTime() <= Date.now()) {
+      return notFound("This video response has expired or is unavailable.");
+    }
+
+    answer.rating = rating === null ? undefined : rating;
+    await application.save();
+    return NextResponse.json({ questionId, rating: answer.rating ?? null });
+  } catch (error) {
+    console.error("Rate virtual interview video error:", error);
+    return serverError();
+  }
+}

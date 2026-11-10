@@ -434,12 +434,9 @@ function matchScoreTone(score: number) {
   return "low";
 }
 
-function canInviteVirtualInterview(applicant: Applicant, job: Job) {
+function canInviteVirtualInterview(job: Job) {
   return (
     job.postingPlan !== "basic" &&
-    applicant.status === "shortlisted" &&
-    applicant.assignment?.status === "reviewed" &&
-    applicant.assignment.decision === "pass" &&
     job.interviewQuestions?.length > 0
   );
 }
@@ -1761,7 +1758,7 @@ export default function WorkspacePage() {
                                         disabled={
                                           stage.value === "interview" &&
                                           applicant.status !== "interview" &&
-                                          !canInviteVirtualInterview(applicant, job)
+                                          !canInviteVirtualInterview(job)
                                         }
                                       >
                                         {stage.label}
@@ -1799,10 +1796,8 @@ export default function WorkspacePage() {
                                       : "Review assignment"}
                                   </button>
                                 ) : null}
-                                {applicant.assignment?.status === "reviewed" &&
-                                  applicant.assignment.decision === "pass" &&
-                                  applicant.status === "shortlisted" &&
-                                  job.interviewQuestions?.length > 0 && (
+                                {canInviteVirtualInterview(job) &&
+                                  applicant.status !== "interview" && (
                                     <button
                                       className="button button-light small-button"
                                       disabled={updatingApplicant === applicant.id}

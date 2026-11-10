@@ -12,7 +12,6 @@ import {
 import { deleteInterviewVideo } from "@/lib/interview-videos";
 import { Application } from "@/models/Application";
 import type { IApplication } from "@/models/Application";
-import { Assignment } from "@/models/Assignment";
 import { Job } from "@/models/Job";
 import type { IJob } from "@/models/Job";
 
@@ -119,34 +118,16 @@ export async function POST(request: NextRequest, { params }: Params) {
       employerId: session.employerId,
     });
     if (!application) return notFound("Application not found");
-    if (application.status !== "shortlisted") {
-      return NextResponse.json(
-        { error: "Only shortlisted applicants can be invited to a video interview." },
-        { status: 409 },
-      );
-    }
 
-    const [job, assignment] = await Promise.all([
-      Job.findOne({
-        _id: application.jobId,
-        employerId: session.employerId,
-      }).select("title postingPlan interviewQuestions"),
-      Assignment.findOne({
-        applicationId: application._id,
-        employerId: session.employerId,
-      }).select("status decision"),
-    ]);
+    const job = await Job.findOne({
+      _id: application.jobId,
+      employerId: session.employerId,
+    }).select("title postingPlan interviewQuestions");
     if (!job) return notFound("Job not found");
     if (job.postingPlan === "basic") {
       return NextResponse.json(
         { error: "Virtual interviews are available with Premium and Full Recruitment." },
         { status: 403 },
-      );
-    }
-    if (!assignment || assignment.status !== "reviewed" || assignment.decision !== "pass") {
-      return NextResponse.json(
-        { error: "Review the assignment and mark it as passed before sending a video interview." },
-        { status: 409 },
       );
     }
     if (!job.interviewQuestions.length) {

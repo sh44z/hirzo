@@ -442,6 +442,16 @@ function canInviteVirtualInterview(job: Job) {
   );
 }
 
+function getVirtualInterviewUnavailableReason(job: Job) {
+  if (job.postingPlan === "basic") {
+    return "Virtual interviews require Premium or Full Recruitment.";
+  }
+  if (!job.interviewQuestions?.length) {
+    return "Add virtual interview questions in Edit Job to enable invites.";
+  }
+  return "";
+}
+
 const typeLabels: Record<string, string> = {
   full_time: "Full time",
   part_time: "Part time",
@@ -1799,11 +1809,14 @@ export default function WorkspacePage() {
                                       : "Review assignment"}
                                   </button>
                                 ) : null}
-                                {canInviteVirtualInterview(job) &&
-                                  applicant.virtualInterviewStatus !== "submitted" && (
+                                {applicant.virtualInterviewStatus !== "submitted" && (
+                                  <>
                                     <button
                                       className="button button-light small-button"
-                                      disabled={updatingApplicant === applicant.id}
+                                      disabled={
+                                        updatingApplicant === applicant.id ||
+                                        !canInviteVirtualInterview(job)
+                                      }
                                       onClick={() =>
                                         void sendVirtualInterview(applicant)
                                       }
@@ -1814,7 +1827,13 @@ export default function WorkspacePage() {
                                           ? "Resend video interview"
                                           : "Send video interview"}
                                     </button>
-                                  )}
+                                    {!canInviteVirtualInterview(job) && (
+                                      <span className="field-hint">
+                                        {getVirtualInterviewUnavailableReason(job)}
+                                      </span>
+                                    )}
+                                  </>
+                                )}
                                 {applicant.virtualInterviewSubmittedAt && (
                                   <span className="virtual-interview-submitted">
                                     Video interview submitted

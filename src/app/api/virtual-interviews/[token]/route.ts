@@ -44,6 +44,16 @@ export async function GET(_request: NextRequest, { params }: Params) {
           : undefined,
         jobTitle: job?.title || "Role",
         questions: application.virtualInterviewQuestions,
+        videoAnswers: application.virtualInterviewAnswers
+          .filter(
+            (answer: IApplication["virtualInterviewAnswers"][number]) =>
+              answer.expiresAt.getTime() > Date.now(),
+          )
+          .map(
+            (answer: IApplication["virtualInterviewAnswers"][number]) => ({
+              questionId: answer.questionId,
+            }),
+          ),
         expiresAt: application.virtualInterviewTokenExpiresAt,
         submittedAt: application.virtualInterviewSubmittedAt,
       },

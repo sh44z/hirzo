@@ -1,9 +1,13 @@
 import { createHash } from "node:crypto";
+import { Readable } from "node:stream";
 import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import { badRequest, notFound, serverError } from "@/lib/auth";
 import {
   deleteInterviewVideo,
+  getInterviewVideoBucket,
+  getInterviewVideoFile,
   INTERVIEW_VIDEO_RETENTION_MS,
   saveInterviewVideoChunks,
 } from "@/lib/interview-videos";
@@ -183,6 +187,61 @@ export async function PUT(request: NextRequest, { params }: Params) {
       return badRequest(error.message);
     }
     console.error("Finalize virtual interview video upload error:", error);
+    return serverError();
+  }
+}
+
+export async function GET(_request: NextRequest, { params }: Params) {
+  try {
+    const { token, questionId } = await params;
+    if (!token || token.length > 100) {
+      return notFound("This virtual interview link is invalid or expired.");
+    }
+
+    await connectDB();
+    const application = await Application.findOne({
+      virtualInterviewTokenHash: hashToken(token),
+      virtualInterviewTokenExpiresAt: { $gt: new Date() },
+      status: "interview",
+      virtualInterviewSubmittedAt: { $exists: true },
+      virtualInterviewAnswers: {
+        $elemMatch: { questionId, expiresAt: { $gt: new Date() } },
+      },
+    }).select("virtualInterviewAnswers");
+    if (!application) {
+      return notFound("This submitted video response has expired or is unavailable.");
+    }
+
+    const answer = application.virtualInterviewAnswers.find(
+      (item: IApplication["virtualInterviewAnswers"][number]) =>
+        item.questionId === questionId && item.expiresAt.getTime() > Date.now(),
+    );
+    if (!answer) {
+      return notFound("This submitted video response has expired or is unavailable.");
+    }
+
+    const file = await getInterviewVideoFile(answer.fileId);
+    if (!file) {
+      return notFound("This submitted video response has expired or is unavailable.");
+    }
+    const stream = getInterviewVideoBucket().openDownloadStream(
+      new mongoose.Types.ObjectId(answer.fileId),
+    );
+    stream.on("error", (streamError) => {
+      console.error("Stream candidate virtual interview video error:", streamError);
+    });
+
+    return new NextResponse(Readable.toWeb(stream) as ReadableStream, {
+      headers: {
+        "Content-Type": answer.mimeType,
+        "Content-Length": String(file.length),
+        "Content-Disposition": "inline",
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "private, no-store",
+      },
+    });
+  } catch (error) {
+    console.error("Get candidate virtual interview video error:", error);
     return serverError();
   }
 }

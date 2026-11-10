@@ -12,6 +12,7 @@ type CandidateInterview = {
   companyLogo?: string;
   jobTitle: string;
   questions: VirtualInterviewQuestion[];
+  videoAnswers: Array<{ questionId: string }>;
   expiresAt: string;
 };
 
@@ -291,6 +292,27 @@ export default function CandidateVirtualInterviewPage() {
               received by {interview.companyName}. The video files are
               automatically deleted after three days.
             </p>
+            {interview.videoAnswers.length > 0 && (
+              <div className="form-stack candidate-assignment-form">
+                {interview.videoAnswers.map(({ questionId }) => {
+                  const question = interview.questions.find(
+                    (item) => item.id === questionId,
+                  );
+                  if (!question) return null;
+                  return (
+                    <section className="interview-question" key={questionId}>
+                      <h3>{question.question}</h3>
+                      <video
+                        className="interview-video-preview"
+                        src={`/api/virtual-interviews/${token}/videos/${encodeURIComponent(questionId)}`}
+                        controls
+                        playsInline
+                      />
+                    </section>
+                  );
+                })}
+              </div>
+            )}
           </section>
         ) : expired ? (
           <section className="assignment-message">

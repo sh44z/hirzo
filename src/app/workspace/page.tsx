@@ -71,6 +71,7 @@ type Applicant = {
     qualifications: string[];
   };
   assignment?: AssignmentSummary;
+  virtualInterviewStatus?: "not_invited" | "invited" | "submitted";
   virtualInterviewSubmittedAt?: string;
   virtualInterviewAnswers?: Array<{
     questionId: string;
@@ -1078,7 +1079,14 @@ export default function WorkspacePage() {
         current.map((job) => ({
           ...job,
           applicants: job.applicants.map((item) =>
-            item.id === applicant.id ? { ...item, status: "interview" } : item,
+            item.id === applicant.id
+              ? {
+                  ...item,
+                  status: "interview",
+                  virtualInterviewStatus: "invited",
+                  virtualInterviewSubmittedAt: undefined,
+                }
+              : item,
           ),
         })),
       );
@@ -1743,11 +1751,7 @@ export default function WorkspacePage() {
                                     onChange={(event) => {
                                       const status = event.target.value as ApplicationStatus;
                                       if (status === "interview") {
-                                        if (canInviteVirtualInterview(job)) {
-                                          void sendVirtualInterview(applicant);
-                                        } else {
-                                          void updateApplicantStatus(applicant, status);
-                                        }
+                                        void updateApplicantStatus(applicant, status);
                                       } else if (status === "shortlisted") {
                                         openShortlistModal(applicant, job);
                                       } else {
@@ -1796,7 +1800,7 @@ export default function WorkspacePage() {
                                   </button>
                                 ) : null}
                                 {canInviteVirtualInterview(job) &&
-                                  applicant.status !== "interview" && (
+                                  applicant.virtualInterviewStatus !== "submitted" && (
                                     <button
                                       className="button button-light small-button"
                                       disabled={updatingApplicant === applicant.id}
@@ -1806,7 +1810,9 @@ export default function WorkspacePage() {
                                     >
                                       {updatingApplicant === applicant.id
                                         ? "Sending…"
-                                        : "Send video interview"}
+                                        : applicant.virtualInterviewStatus === "invited"
+                                          ? "Resend video interview"
+                                          : "Send video interview"}
                                     </button>
                                   )}
                                 {applicant.virtualInterviewSubmittedAt && (

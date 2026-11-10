@@ -24,7 +24,7 @@ export async function GET() {
           employerId: session.employerId,
           jobId: { $in: jobs.map((job) => job._id) },
         })
-          .select("jobId candidateName candidateEmail candidatePhone cvFileName candidateProfile status createdAt virtualInterviewQuestions virtualInterviewAnswers virtualInterviewSubmittedAt")
+          .select("jobId candidateName candidateEmail candidatePhone cvFileName candidateProfile status createdAt virtualInterviewQuestions virtualInterviewTokenHash virtualInterviewAnswers virtualInterviewSubmittedAt")
           .sort({ createdAt: -1 })
           .lean()
       : [];
@@ -124,6 +124,11 @@ export async function GET() {
                 : undefined,
               virtualInterviewSubmittedAt:
                 application.virtualInterviewSubmittedAt,
+              virtualInterviewStatus: application.virtualInterviewSubmittedAt
+                ? "submitted"
+                : application.virtualInterviewTokenHash
+                  ? "invited"
+                  : "not_invited",
               virtualInterviewAnswers: (
                 application.virtualInterviewAnswers || []
               )

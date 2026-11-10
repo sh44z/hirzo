@@ -107,6 +107,22 @@ const emptyAssignmentTemplate = (): AssignmentTemplate => ({
   questions: [],
 });
 
+function prepareAssignmentTemplate(
+  template: AssignmentTemplate,
+): AssignmentTemplate {
+  return {
+    ...template,
+    questions: template.questions.map((question) => ({
+      ...question,
+      question: question.question.trim(),
+      options:
+        question.type === "multiple_choice"
+          ? (question.options || []).map((option) => option.trim()).filter(Boolean)
+          : undefined,
+    })),
+  };
+}
+
 function AssignmentTemplateEditor({
   template,
   onChange,
@@ -209,9 +225,7 @@ function AssignmentTemplateEditor({
                   onChange={(event) =>
                     updateQuestion(index, {
                       options: event.target.value
-                        .split(/\n/)
-                        .map((option) => option.trim())
-                        .filter(Boolean),
+                        .split(/\r?\n/),
                     })
                   }
                   placeholder={"Option one\nOption two"}
@@ -418,6 +432,16 @@ function matchScoreTone(score: number) {
   if (score >= 80) return "strong";
   if (score >= 50) return "moderate";
   return "low";
+}
+
+function canInviteVirtualInterview(applicant: Applicant, job: Job) {
+  return (
+    job.postingPlan !== "basic" &&
+    applicant.status === "shortlisted" &&
+    applicant.assignment?.status === "reviewed" &&
+    applicant.assignment.decision === "pass" &&
+    job.interviewQuestions?.length > 0
+  );
 }
 
 const typeLabels: Record<string, string> = {
@@ -698,13 +722,7 @@ export default function WorkspacePage() {
         .filter((question) => question.question && question.expectedAnswer),
       defaultAssignment:
         defaultAssignment.questions.length > 0
-          ? {
-              ...defaultAssignment,
-              questions: defaultAssignment.questions.map((question) => ({
-                ...question,
-                question: question.question.trim(),
-              })),
-            }
+          ? prepareAssignmentTemplate(defaultAssignment)
           : undefined,
       interviewQuestions: interviewQuestions
         .map((question) => ({
@@ -846,13 +864,7 @@ export default function WorkspacePage() {
       status: String(form.get("status")),
       defaultAssignment:
         editDefaultAssignment.questions.length > 0
-          ? {
-              ...editDefaultAssignment,
-              questions: editDefaultAssignment.questions.map((question) => ({
-                ...question,
-                question: question.question.trim(),
-              })),
-            }
+          ? prepareAssignmentTemplate(editDefaultAssignment)
           : null,
       interviewQuestions: editInterviewQuestions
         .map((question) => ({
@@ -1007,7 +1019,9 @@ export default function WorkspacePage() {
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ template: shortlistTemplate }),
+            body: JSON.stringify({
+              template: prepareAssignmentTemplate(shortlistTemplate),
+            }),
           },
         );
         const data = await response.json();
@@ -1657,7 +1671,7 @@ export default function WorkspacePage() {
                               >
                                 <option value="all">All applicants</option>
                                 <option value="shortlisted">Shortlisted</option>
-                                <option value="interview">Interviewed</option>
+                                <option value="interview">Interviewing</option>
                               </select>
                             </label>
                             <label>
@@ -1731,7 +1745,9 @@ export default function WorkspacePage() {
                                     disabled={updatingApplicant === applicant.id}
                                     onChange={(event) => {
                                       const status = event.target.value as ApplicationStatus;
-                                      if (status === "shortlisted") {
+                                      if (status === "interview") {
+                                        void sendVirtualInterview(applicant);
+                                      } else if (status === "shortlisted") {
                                         openShortlistModal(applicant, job);
                                       } else {
                                         void updateApplicantStatus(applicant, status);
@@ -1744,8 +1760,8 @@ export default function WorkspacePage() {
                                         value={stage.value}
                                         disabled={
                                           stage.value === "interview" &&
-                                          (job.postingPlan === "basic" ||
-                                            applicant.status !== "interview")
+                                          applicant.status !== "interview" &&
+                                          !canInviteVirtualInterview(applicant, job)
                                         }
                                       >
                                         {stage.label}

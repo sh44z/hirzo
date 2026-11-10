@@ -48,6 +48,35 @@ export function getInterviewVideoBucket(): GridFSBucket {
   });
 }
 
+function toVideoChunkBuffer(data: unknown): Buffer {
+  if (Buffer.isBuffer(data)) return data;
+  if (data instanceof Uint8Array) {
+    return Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+  }
+  if (data && typeof data === "object" && "buffer" in data) {
+    const binary = data as { buffer: unknown; position?: unknown };
+    if (
+      binary.buffer instanceof Uint8Array &&
+      (binary.position === undefined ||
+        (typeof binary.position === "number" &&
+          Number.isInteger(binary.position) &&
+          binary.position >= 0 &&
+          binary.position <= binary.buffer.byteLength))
+    ) {
+      const length =
+        typeof binary.position === "number"
+          ? binary.position
+          : binary.buffer.byteLength;
+      return Buffer.from(
+        binary.buffer.buffer,
+        binary.buffer.byteOffset,
+        length,
+      );
+    }
+  }
+  throw new Error("Video upload chunk data is invalid");
+}
+
 export async function saveInterviewVideoChunks({
   applicationId,
   questionId,
@@ -74,10 +103,11 @@ export async function saveInterviewVideoChunks({
     mimeType,
   }).select("data");
   if (!firstChunk) throw new Error("Video upload is incomplete");
+  const firstChunkData = toVideoChunkBuffer(firstChunk.data);
   const signatureMatches =
     mimeType === "video/webm"
-      ? firstChunk.data.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
-      : firstChunk.data.subarray(4, 8).toString() === "ftyp";
+      ? firstChunkData.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
+      : firstChunkData.subarray(4, 8).toString() === "ftyp";
   if (!signatureMatches) throw new Error("Video format could not be validated");
 
   const bucket = getInterviewVideoBucket();
@@ -109,7 +139,7 @@ export async function saveInterviewVideoChunks({
               throw new Error("Video upload chunks are inconsistent");
             }
             expectedIndex += 1;
-            yield chunk.data;
+            yield toVideoChunkBuffer(chunk.data);
           }
           if (expectedIndex !== totalChunks) {
             throw new Error("Video upload is incomplete");

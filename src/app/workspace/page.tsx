@@ -436,6 +436,12 @@ function matchScoreTone(score: number) {
   return "low";
 }
 
+function getAvailableVirtualInterviewAnswers(applicant: Applicant) {
+  return (applicant.virtualInterviewAnswers || []).filter(
+    (answer) => new Date(answer.expiresAt).getTime() > Date.now(),
+  );
+}
+
 function canInviteVirtualInterview(job: Job) {
   return (
     job.postingPlan !== "basic" &&
@@ -520,6 +526,7 @@ export default function WorkspacePage() {
   const [applicantSorts, setApplicantSorts] = useState<
     Record<string, ApplicantSort>
   >({});
+  const [openVideoTabApplicantId, setOpenVideoTabApplicantId] = useState("");
   const [contactDraft, setContactDraft] = useState<ContactDraft | null>(null);
   const [shortlistDraft, setShortlistDraft] = useState<{
     applicant: Applicant;
@@ -1013,7 +1020,8 @@ export default function WorkspacePage() {
     questionId: string,
     rating: number | null,
   ) {
-    setError("");
+    if (assignmentReviewOpen) setAssignmentReviewError("");
+    else setError("");
     try {
       const response = await fetch(
         `/api/employers/applications/${applicant.id}/interview-videos/${encodeURIComponent(questionId)}`,
@@ -1044,11 +1052,12 @@ export default function WorkspacePage() {
         })),
       );
     } catch (ratingError) {
-      setError(
+      const message =
         ratingError instanceof Error
           ? ratingError.message
-          : "Could not save video rating.",
-      );
+          : "Could not save video rating.";
+      if (assignmentReviewOpen) setAssignmentReviewError(message);
+      else setError(message);
     }
   }
 
@@ -1760,7 +1769,12 @@ export default function WorkspacePage() {
                             <div className="applicant-list">
                               {visibleApplicantsByJobId
                                 .get(job.id)
-                                ?.map((applicant) => (
+                                ?.map((applicant) => {
+                            const availableVideoAnswers =
+                              getAvailableVirtualInterviewAnswers(applicant);
+                            const videoTabOpen =
+                              openVideoTabApplicantId === applicant.id;
+                            return (
                             <article className="applicant-row" key={applicant.id}>
                               <div>
                                 <strong>{applicant.candidateName}</strong>
@@ -1854,6 +1868,29 @@ export default function WorkspacePage() {
                                       : "Review assignment"}
                                   </button>
                                 ) : null}
+                                {availableVideoAnswers.length > 0 && (
+                                  <div
+                                    className="applicant-tabs"
+                                    role="tablist"
+                                    aria-label={`${applicant.candidateName} submissions`}
+                                  >
+                                    <button
+                                      className="applicant-video-tab"
+                                      id={`video-tab-${applicant.id}`}
+                                      type="button"
+                                      role="tab"
+                                      aria-selected={videoTabOpen}
+                                      aria-controls={`video-panel-${applicant.id}`}
+                                      onClick={() =>
+                                        setOpenVideoTabApplicantId(
+                                          videoTabOpen ? "" : applicant.id,
+                                        )
+                                      }
+                                    >
+                                      Video interview <span>New</span>
+                                    </button>
+                                  </div>
+                                )}
                                 {applicant.virtualInterviewStatus !== "submitted" && (
                                   <>
                                     <button
@@ -1879,53 +1916,6 @@ export default function WorkspacePage() {
                                     )}
                                   </>
                                 )}
-                                {applicant.virtualInterviewSubmittedAt && (
-                                  <span className="virtual-interview-submitted">
-                                    Video interview submitted
-                                  </span>
-                                )}
-                                {applicant.virtualInterviewAnswers
-                                  ?.filter(
-                                    (answer) =>
-                                      new Date(answer.expiresAt).getTime() >
-                                      Date.now(),
-                                  )
-                                  .map((answer) => (
-                                    <section
-                                      className="interview-question"
-                                      key={answer.questionId}
-                                    >
-                                      <strong>{answer.question}</strong>
-                                      <video
-                                        className="interview-video-preview"
-                                        src={answer.videoUrl}
-                                        controls
-                                        playsInline
-                                      />
-                                      <label>
-                                        Rate this answer
-                                        <select
-                                          value={answer.rating ?? ""}
-                                          onChange={(event) =>
-                                            void saveVirtualInterviewRating(
-                                              applicant,
-                                              answer.questionId,
-                                              event.target.value
-                                                ? Number(event.target.value)
-                                                : null,
-                                            )
-                                          }
-                                        >
-                                          <option value="">Not rated</option>
-                                          {[1, 2, 3, 4, 5].map((rating) => (
-                                            <option key={rating} value={rating}>
-                                              {rating} / 5
-                                            </option>
-                                          ))}
-                                        </select>
-                                      </label>
-                                    </section>
-                                  ))}
                                 <button
                                   className="button button-light small-button"
                                   disabled={updatingApplicant === applicant.id}
@@ -1952,8 +1942,34 @@ export default function WorkspacePage() {
                                   Schedule
                                 </button>
                               </div>
+                              {availableVideoAnswers.length > 0 && (
+                                <section
+                                  className="applicant-video-panel"
+                                  id={`video-panel-${applicant.id}`}
+                                  role="tabpanel"
+                                  aria-labelledby={`video-tab-${applicant.id}`}
+                                  hidden={!videoTabOpen}
+                                  tabIndex={0}
+                                >
+                                  {availableVideoAnswers.map((answer) => (
+                                    <article
+                                      className="interview-question"
+                                      key={answer.questionId}
+                                    >
+                                      <strong>{answer.question}</strong>
+                                      <video
+                                        className="interview-video-preview"
+                                        src={answer.videoUrl}
+                                        controls
+                                        playsInline
+                                      />
+                                    </article>
+                                  ))}
+                                </section>
+                              )}
                             </article>
-                              ))}
+                            );
+                          })}
                             </div>
                           )}
                         </>
@@ -2821,6 +2837,51 @@ export default function WorkspacePage() {
                         </article>
                       );
                     })}
+                    {reviewApplicant &&
+                      getAvailableVirtualInterviewAnswers(reviewApplicant).length >
+                        0 && (
+                        <section className="scorecard-video-responses">
+                          <h3>Video interview answers</h3>
+                          {getAvailableVirtualInterviewAnswers(
+                            reviewApplicant,
+                          ).map((answer) => (
+                            <article key={answer.questionId}>
+                              <h4>{answer.question}</h4>
+                              <video
+                                className="interview-video-preview"
+                                src={answer.videoUrl}
+                                controls
+                                playsInline
+                              />
+                              <label>
+                                Video rating
+                                <select
+                                  value={answer.rating ?? ""}
+                                  onChange={(event) =>
+                                    void saveVirtualInterviewRating(
+                                      reviewApplicant,
+                                      answer.questionId,
+                                      event.target.value
+                                        ? Number(event.target.value)
+                                        : null,
+                                    )
+                                  }
+                                >
+                                  <option value="">Not rated</option>
+                                  {[1, 2, 3, 4, 5].map((rating) => (
+                                    <option key={rating} value={rating}>
+                                      {rating} / 5
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            </article>
+                          ))}
+                          {assignmentReviewError && (
+                            <p className="form-error">{assignmentReviewError}</p>
+                          )}
+                        </section>
+                      )}
                   </div>
                   <section className="assignment-cv-summary">
                     <h3>CV &amp; ATS match</h3>

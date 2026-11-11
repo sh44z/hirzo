@@ -16,6 +16,11 @@ import {
 } from "@/lib/questions";
 import { Job } from "@/models/Job";
 import { MatchResult } from "@/models/MatchResult";
+import { Application } from "@/models/Application";
+import type { IApplication } from "@/models/Application";
+import { Assignment } from "@/models/Assignment";
+import { InterviewVideoChunk } from "@/models/InterviewVideoChunk";
+import { deleteInterviewVideo } from "@/lib/interview-videos";
 
 type Params = { params: Promise<{ jobId: string }> };
 
@@ -169,14 +174,47 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
 
     await connectDB();
 
-    const job = await Job.findOneAndDelete({
+    const job = await Job.findOne({
       _id: jobId,
       employerId: session.employerId,
     });
 
     if (!job) return notFound("Job not found");
 
-    await MatchResult.deleteMany({ jobId: job._id });
+    const applications = await Application.find({
+      jobId: job._id,
+      employerId: session.employerId,
+    }).select("_id virtualInterviewAnswers");
+    const applicationIds = applications.map((application) => application._id);
+
+    await Promise.all(
+      applications.flatMap((application) =>
+        application.virtualInterviewAnswers.map(
+          (answer: IApplication["virtualInterviewAnswers"][number]) =>
+            deleteInterviewVideo(answer.fileId),
+        ),
+      ),
+    );
+    await Promise.all([
+      MatchResult.deleteMany({
+        $or: [
+          { jobId: job._id },
+          { applicationId: { $in: applicationIds } },
+        ],
+      }),
+      Assignment.deleteMany({
+        jobId: job._id,
+        employerId: session.employerId,
+      }),
+      InterviewVideoChunk.deleteMany({
+        applicationId: { $in: applicationIds },
+      }),
+      Application.deleteMany({
+        jobId: job._id,
+        employerId: session.employerId,
+      }),
+    ]);
+    await job.deleteOne();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Delete job error:", error);

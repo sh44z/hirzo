@@ -21,6 +21,15 @@ export const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+export const contactInquirySchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  companyName: z.string().trim().min(2).max(120),
+  email: z.string().trim().email().max(254),
+  phone: z.string().trim().max(40).optional().default(""),
+  service: z.enum(["full_recruitment", "hiring_training"]),
+  message: z.string().trim().min(10).max(2000),
+});
+
 const qualificationQuestionSchema = z
   .object({
     id: z.string().min(1).optional(),

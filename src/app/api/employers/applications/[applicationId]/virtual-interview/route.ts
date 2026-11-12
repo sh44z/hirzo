@@ -126,7 +126,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     if (!job) return notFound("Job not found");
     if (job.postingPlan === "basic") {
       return NextResponse.json(
-        { error: "Virtual interviews are available with Premium and Full Recruitment." },
+        { error: "Virtual interviews are available with Premium and Complete Recruitment." },
         { status: 403 },
       );
     }

@@ -21,8 +21,8 @@ export const JOB_POSTING_PLANS = {
     ],
   },
   full_recruitment: {
-    name: "Full recruitment solution",
-    amount: 699,
+    name: "Complete recruitment solution",
+    amount: 999,
     features: [
       "Job posting and candidate interviews",
       "Contract preparation",
@@ -30,6 +30,8 @@ export const JOB_POSTING_PLANS = {
     ],
   },
 } as const;
+
+export const HIRING_TRAINING_AMOUNT = 1800;
 
 export type JobPostingPlan = keyof typeof JOB_POSTING_PLANS;
 export type CreditableJobPostingPlan = "basic" | "premium";

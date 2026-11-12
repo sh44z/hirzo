@@ -436,6 +436,11 @@ function matchScoreTone(score: number) {
   return "low";
 }
 
+function getTotalCandidateScore(matchScore?: number, assignmentRating?: number) {
+  if (matchScore === undefined || assignmentRating === undefined) return null;
+  return Math.round((matchScore + assignmentRating * 20) / 2);
+}
+
 function getAvailableVirtualInterviewAnswers(applicant: Applicant) {
   return (applicant.virtualInterviewAnswers || []).filter(
     (answer) => new Date(answer.expiresAt).getTime() > Date.now(),
@@ -451,7 +456,7 @@ function canInviteVirtualInterview(job: Job) {
 
 function getVirtualInterviewUnavailableReason(job: Job) {
   if (job.postingPlan === "basic") {
-    return "Virtual interviews require Premium or Full Recruitment.";
+    return "Virtual interviews require Premium or Complete Recruitment.";
   }
   if (!job.interviewQuestions?.length) {
     return "Add virtual interview questions in Edit Job to enable invites.";
@@ -467,7 +472,7 @@ const typeLabels: Record<string, string> = {
   temporary: "Temporary",
 };
 
-const planIds = ["basic", "premium", "full_recruitment"] as const;
+const planIds = ["basic", "premium"] as const;
 const MAX_COMPANY_LOGO_SIZE = 500 * 1024;
 const COMPANY_LOGO_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
@@ -1012,52 +1017,6 @@ export default function WorkspacePage() {
       );
     } finally {
       setUpdatingApplicant("");
-    }
-  }
-
-  async function saveVirtualInterviewRating(
-    applicant: Applicant,
-    questionId: string,
-    rating: number | null,
-  ) {
-    if (assignmentReviewOpen) setAssignmentReviewError("");
-    else setError("");
-    try {
-      const response = await fetch(
-        `/api/employers/applications/${applicant.id}/interview-videos/${encodeURIComponent(questionId)}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rating }),
-        },
-      );
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Could not save video rating.");
-      setJobs((current) =>
-        current.map((job) => ({
-          ...job,
-          applicants: job.applicants.map((item) =>
-            item.id === applicant.id
-              ? {
-                  ...item,
-                  virtualInterviewAnswers: item.virtualInterviewAnswers?.map(
-                    (answer) =>
-                      answer.questionId === questionId
-                        ? { ...answer, rating: data.rating ?? undefined }
-                        : answer,
-                  ),
-                }
-              : item,
-          ),
-        })),
-      );
-    } catch (ratingError) {
-      const message =
-        ratingError instanceof Error
-          ? ratingError.message
-          : "Could not save video rating.";
-      if (assignmentReviewOpen) setAssignmentReviewError(message);
-      else setError(message);
     }
   }
 
@@ -2109,7 +2068,7 @@ export default function WorkspacePage() {
                   required
                   minLength={3}
                   maxLength={160}
-                  placeholder="e.g. Senior Product Designer"
+                  placeholder="e.g. Sales Development Representative (SDR)"
                 />
               </label>
               <div className="form-row">
@@ -2840,8 +2799,8 @@ export default function WorkspacePage() {
                     {reviewApplicant &&
                       getAvailableVirtualInterviewAnswers(reviewApplicant).length >
                         0 && (
-                        <section className="scorecard-video-responses">
-                          <h3>Video interview answers</h3>
+                          <section className="scorecard-video-responses" aria-label="Video interview responses">
+                            <h3>Video interview responses</h3>
                           {getAvailableVirtualInterviewAnswers(
                             reviewApplicant,
                           ).map((answer) => (
@@ -2853,43 +2812,33 @@ export default function WorkspacePage() {
                                 controls
                                 playsInline
                               />
-                              <label>
-                                Video rating
-                                <select
-                                  value={answer.rating ?? ""}
-                                  onChange={(event) =>
-                                    void saveVirtualInterviewRating(
-                                      reviewApplicant,
-                                      answer.questionId,
-                                      event.target.value
-                                        ? Number(event.target.value)
-                                        : null,
-                                    )
-                                  }
-                                >
-                                  <option value="">Not rated</option>
-                                  {[1, 2, 3, 4, 5].map((rating) => (
-                                    <option key={rating} value={rating}>
-                                      {rating} / 5
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
                             </article>
                           ))}
-                          {assignmentReviewError && (
-                            <p className="form-error">{assignmentReviewError}</p>
-                          )}
                         </section>
                       )}
                   </div>
                   <section className="assignment-cv-summary">
-                    <h3>CV &amp; ATS match</h3>
-                    {reviewApplicant?.score !== undefined ? (
-                      <strong>{reviewApplicant.score}% match</strong>
-                    ) : (
-                      <p>CV match score unavailable.</p>
-                    )}
+                    <h3>Candidate scorecard</h3>
+                    <div className="candidate-scorecard-metrics">
+                      <div><span>Job match</span><strong>{reviewApplicant?.score !== undefined ? `${reviewApplicant.score}%` : "—"}</strong></div>
+                      <div><span>Assignment</span><strong>{assignmentReview.rating ? `${assignmentReview.rating} / 5` : "—"}</strong></div>
+                      <div className="candidate-total-score">
+                        <span>Total score</span>
+                        <strong>
+                          {getTotalCandidateScore(
+                            reviewApplicant?.score,
+                            assignmentReview.rating,
+                          ) ?? "—"}
+                          {getTotalCandidateScore(
+                            reviewApplicant?.score,
+                            assignmentReview.rating,
+                          ) !== null
+                            ? "%"
+                            : ""}
+                        </strong>
+                      </div>
+                    </div>
+                    <p className="scorecard-weighting">Total is an equal-weight average of job match and assignment score.</p>
                     {reviewApplicant?.candidateProfile?.yearsExperience != null && (
                       <p>
                         {reviewApplicant.candidateProfile.yearsExperience} years
@@ -2920,9 +2869,9 @@ export default function WorkspacePage() {
                     className="form-stack assignment-scorecard"
                     onSubmit={(event) => void saveAssignmentReview(event)}
                   >
-                    <h3>Internal scorecard</h3>
+                    <h3>Assignment review</h3>
                     <label>
-                      Rating
+                      Assignment score
                       <select
                         name="rating"
                         defaultValue={assignmentReview.rating || ""}

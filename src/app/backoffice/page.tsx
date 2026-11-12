@@ -3,6 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  HIRING_TRAINING_AMOUNT,
+  JOB_POSTING_PLANS,
+} from "@/lib/job-posting-plans";
 
 type Admin = { adminId: string; email: string; name: string };
 type EmployerStatus = "active" | "paused" | "pending_verification" | "suspended" | "banned";
@@ -64,12 +68,22 @@ type AuditLog = {
   createdAt: string;
 };
 type NotificationTemplate = { key: string; subject: string; body: string };
+type SalesInquiry = {
+  id: string;
+  name: string;
+  companyName: string;
+  email: string;
+  phone: string;
+  service: "full_recruitment" | "hiring_training";
+  message: string;
+  createdAt: string;
+};
 type PlatformSettings = {
   defaultJobExpirationDays: number;
   maintenanceMode: boolean;
   notificationTemplates: NotificationTemplate[];
 };
-type Tab = "employers" | "moderation" | "candidates" | "settings" | "audit" | "accounts";
+type Tab = "employers" | "moderation" | "candidates" | "sales_inquiries" | "settings" | "audit" | "accounts";
 
 const employerStatuses: Array<{ value: EmployerStatus; label: string }> = [
   { value: "active", label: "Active" },
@@ -83,6 +97,7 @@ const tabs: Array<{ value: Tab; label: string; icon: string }> = [
   { value: "employers", label: "Employers", icon: "⌂" },
   { value: "moderation", label: "Job moderation", icon: "▤" },
   { value: "candidates", label: "Talent", icon: "♙" },
+  { value: "sales_inquiries", label: "Sales inquiries", icon: "✉" },
   { value: "settings", label: "System settings", icon: "⚙" },
   { value: "audit", label: "Audit log", icon: "◷" },
   { value: "accounts", label: "Master accounts", icon: "♧" },
@@ -107,6 +122,7 @@ export default function BackofficePage() {
   const [employers, setEmployers] = useState<Employer[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [salesInquiries, setSalesInquiries] = useState<SalesInquiry[]>([]);
   const [jobs, setJobs] = useState<ModerationJob[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [settings, setSettings] = useState<PlatformSettings>({
@@ -141,17 +157,19 @@ export default function BackofficePage() {
       }
       const meData = await meResponse.json();
       setAdmin(meData.admin);
-      const [employerData, accountData, candidateData, jobData, auditData, settingsData] = await Promise.all([
+      const [employerData, accountData, candidateData, jobData, auditData, settingsData, inquiryData] = await Promise.all([
         fetch("/api/admin/employers").then(readResponse<{ employers: Employer[] }>),
         fetch("/api/admin/accounts").then(readResponse<{ accounts: Account[] }>),
         fetch("/api/admin/candidates").then(readResponse<{ candidates: Candidate[] }>),
         fetch("/api/admin/jobs").then(readResponse<{ jobs: ModerationJob[] }>),
         fetch("/api/admin/audit").then(readResponse<{ logs: AuditLog[] }>),
         fetch("/api/admin/settings").then(readResponse<{ settings: PlatformSettings }>),
+        fetch("/api/admin/contact-inquiries").then(readResponse<{ inquiries: SalesInquiry[] }>),
       ]);
       setEmployers(employerData.employers);
       setAccounts(accountData.accounts);
       setCandidates(candidateData.candidates);
+      setSalesInquiries(inquiryData.inquiries);
       setJobs(jobData.jobs);
       setLogs(auditData.logs);
       setSettings(settingsData.settings);
@@ -370,6 +388,7 @@ export default function BackofficePage() {
     setAdmin(null);
     setEmployers([]);
     setAccounts([]);
+    setSalesInquiries([]);
   }
 
   const visibleEmployers = useMemo(() => employers.filter((employer) => {
@@ -409,6 +428,7 @@ export default function BackofficePage() {
             <button key={item.value} className={`side-link ${tab === item.value ? "active" : ""}`} onClick={() => setTab(item.value)}>
               <span>{item.icon}</span>{item.label}
               {item.value === "moderation" && pendingJobs.length > 0 && <b className="nav-count">{pendingJobs.length}</b>}
+              {item.value === "sales_inquiries" && salesInquiries.length > 0 && <b className="nav-count">{salesInquiries.length}</b>}
             </button>
           ))}
         </nav>
@@ -427,7 +447,7 @@ export default function BackofficePage() {
         <div className="workspace-inner admin-inner">
           <div className="page-intro">
             <div><div className="eyebrow">PLATFORM CONTROL</div><h1>{tab === "employers" ? "Employer accounts" : pageTitle}</h1>
-              <p>{tab === "employers" ? "Search, review, and manage every employer on Hirzo." : tab === "moderation" ? "Review job posts before they reach job seekers." : tab === "candidates" ? "Review applicants, flag profiles, and manage data requests." : tab === "settings" ? "Configure platform-wide defaults and maintenance." : tab === "audit" ? "A time-stamped record of administrative actions." : "Control who has access to the Hirzo backoffice."}</p>
+              <p>{tab === "employers" ? "Search, review, and manage every employer on Hirzo." : tab === "moderation" ? "Review job posts before they reach job seekers." : tab === "candidates" ? "Review applicants, flag profiles, and manage data requests." : tab === "sales_inquiries" ? "Follow up with employers interested in recruitment and sales training." : tab === "settings" ? "Configure platform-wide defaults and maintenance." : tab === "audit" ? "A time-stamped record of administrative actions." : "Control who has access to the Hirzo backoffice."}</p>
             </div>
             {tab === "accounts" && <button className="button button-dark" onClick={() => setShowAdd(true)}>＋ Add master account</button>}
           </div>
@@ -503,6 +523,22 @@ export default function BackofficePage() {
                   <button className="menu-danger" onClick={() => void updateCandidate(candidate, "erase")}>Erase application data</button>
                 </div></details>
               </div>)}
+            </div>
+          </section>}
+
+          {tab === "sales_inquiries" && <section className="job-management admin-table-section">
+            <div className="section-heading"><div><h2>Recruitment &amp; training inquiries</h2><p>Contact requests submitted from the public pricing page.</p></div><span className="table-count">{salesInquiries.length} inquiries</span></div>
+            <div className="sales-inquiry-list">
+              {salesInquiries.length === 0 ? <div className="table-empty">New recruitment and training inquiries will appear here.</div> : salesInquiries.map((inquiry) => (
+                <article className="sales-inquiry-card" key={inquiry.id}>
+                  <div className="sales-inquiry-heading">
+                    <div><span className="eyebrow">{inquiry.service === "full_recruitment" ? `${JOB_POSTING_PLANS.full_recruitment.name} · £${JOB_POSTING_PLANS.full_recruitment.amount}` : `HIRING & TRAINING · £${HIRING_TRAINING_AMOUNT.toLocaleString("en-GB")}`}</span><h3>{inquiry.companyName}</h3></div>
+                    <time dateTime={inquiry.createdAt}>{new Date(inquiry.createdAt).toLocaleString("en-GB")}</time>
+                  </div>
+                  <div className="sales-inquiry-contact"><strong>{inquiry.name}</strong><a href={`mailto:${encodeURIComponent(inquiry.email)}`}>{inquiry.email}</a>{inquiry.phone && <a href={`tel:${encodeURIComponent(inquiry.phone)}`}>{inquiry.phone}</a>}</div>
+                  <p>{inquiry.message}</p>
+                </article>
+              ))}
             </div>
           </section>}
 

@@ -9,6 +9,8 @@ import {
   useRef,
   useState,
 } from "react";
+import PublicTabs from "@/components/PublicTabs";
+import type { PublicTab } from "@/components/PublicTabs";
 
 type Job = {
   id: string;
@@ -19,6 +21,8 @@ type Job = {
   employmentType: string;
   workplaceType: string;
   companyName: string;
+  companyDescription?: string;
+  companyCulture?: string;
   companyLogo?: string;
   salaryMin?: number;
   salaryMax?: number;
@@ -76,6 +80,31 @@ function salaryLabel(job: Job) {
     : `Up to ${format(job.salaryMax!)}`;
 }
 
+function matchesQuickFilter(job: Job, quickFilter: string) {
+  if (!quickFilter) return true;
+  const roleText = [
+    job.title,
+    job.description,
+    job.companyName,
+    ...(job.requirements?.skills || []),
+    ...(job.requirements?.qualifications || []),
+  ].join(" ").toLowerCase();
+
+  if (quickFilter === "No Experience Needed") {
+    return (
+      job.requirements?.yearsExperience === 0 ||
+      /no experience|entry.level|graduate|trainee/.test(roleText)
+    );
+  }
+  if (quickFilter === "Base + Commission") {
+    return /commission|ote|on.target earnings/.test(roleText);
+  }
+  if (quickFilter === "Structured Training") {
+    return /training|coaching|development program/.test(roleText);
+  }
+  return quickFilter === "Remote" && job.workplaceType === "remote";
+}
+
 function getRoleDetailsDescription(job: Job) {
   const details: string[] = [
     `Posted: ${new Date(job.createdAt).toLocaleDateString("en-GB", {
@@ -109,12 +138,14 @@ function getRoleDetailsDescription(job: Job) {
 }
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<PublicTab>("jobs");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [location, setLocation] = useState("");
   const [filter, setFilter] = useState("All roles");
   const [workplaceFilter, setWorkplaceFilter] = useState("any");
+  const [quickFilter, setQuickFilter] = useState("");
   const [salaryRange, setSalaryRange] = useState<[number, number]>([
     0,
     MAX_SALARY_FILTER,
@@ -134,6 +165,23 @@ export default function Home() {
   const candidateNameRef = useRef<HTMLInputElement>(null);
   const candidateEmailRef = useRef<HTMLInputElement>(null);
   const candidatePhoneRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const requestedTab = new URLSearchParams(window.location.search).get("tab");
+    if (requestedTab === "pricing" || requestedTab === "training") {
+      const frame = window.requestAnimationFrame(() => setActiveTab(requestedTab));
+      return () => window.cancelAnimationFrame(frame);
+    }
+  }, []);
+
+  function selectTab(tab: PublicTab) {
+    setActiveTab(tab);
+    const url = new URL(window.location.href);
+    if (tab === "jobs") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", tab);
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   function setSelected(job: Job | null) {
     setSelectedState(
@@ -187,9 +235,10 @@ export default function Home() {
           ].some(
             (value) => value.toLowerCase().includes(term),
           )) &&
+        matchesQuickFilter(job, quickFilter) &&
         (!place || job.location.toLowerCase().includes(place)),
     );
-  }, [jobs, search, location]);
+  }, [jobs, search, location, quickFilter]);
 
   const visibleJobs = useMemo(
     () =>
@@ -230,10 +279,11 @@ export default function Home() {
           matchesLocation &&
           matchesFilter &&
           matchesWorkplace &&
+          matchesQuickFilter(job, quickFilter) &&
           matchesSalary
         );
       }),
-    [jobs, search, location, filter, workplaceFilter, salaryRange],
+    [jobs, search, location, filter, workplaceFilter, quickFilter, salaryRange],
   );
 
   const searchSuggestions = useMemo(
@@ -363,8 +413,9 @@ export default function Home() {
             />
           </Link>
           <div className="nav-center">
-            <a href="#opportunities">Find jobs</a>
-            <Link href="/employers">For employers</Link>
+            <button className={activeTab === "jobs" ? "nav-tab active" : "nav-tab"} onClick={() => selectTab("jobs")}>Find jobs</button>
+            <button className={activeTab === "pricing" ? "nav-tab active" : "nav-tab"} onClick={() => selectTab("pricing")}>Pricing</button>
+            <button className={activeTab === "training" ? "nav-tab active" : "nav-tab"} onClick={() => selectTab("training")}>Training</button>
           </div>
           <div className="nav-actions">
             <Link href="/workspace" className="button button-dark nav-cta">
@@ -374,33 +425,21 @@ export default function Home() {
         </div>
       </nav>
 
-      <section className="hero-section">
+      {activeTab === "jobs" && <><section className="hero-section">
         <div className="hero-grid-lines" />
         <div className="hero-content">
           <div className="hero-tag">
-            <span className="hero-tag-dot" /> YOUR FIRST SALES ROLE STARTS HERE
+            <span className="hero-tag-dot" /> SALES ROLES FOR YOUR NEXT MOVE
           </div>
           <h1>
-            Your first
+            Build your sales career.
             <br />
-            sales role <span>starts here.</span>
+            <span>Find a role that fits.</span>
           </h1>
           <p className="hero-copy">
-            Find entry-level SDR and sales executive roles for fresh graduates
-            and people starting their sales careers.
+            Explore SDR and sales executive roles, from entry-level
+            opportunities to positions for experienced candidates.
           </p>
-          <div className="hero-audience-grid">
-            <article className="hero-audience-card">
-              <span className="eyebrow">FOR JOB SEEKERS</span>
-              <p>Explore first sales roles, built for fresh graduates and new starters.</p>
-              <a href="#opportunities">Browse jobs <span>→</span></a>
-            </article>
-            <article className="hero-audience-card employer-audience-card">
-              <span className="eyebrow">FOR EMPLOYERS</span>
-              <p>Looking for fresh graduate sales talent? Find out how Hirzo can help.</p>
-              <Link href="/employers">Explore employer services <span>→</span></Link>
-            </article>
-          </div>
           <div className="hero-search">
             <span className="search-icon">⌕</span>
             <input
@@ -433,6 +472,23 @@ export default function Home() {
               Find a role <span>→</span>
             </button>
           </div>
+          <div className="hero-quick-filters" aria-label="Quick job filters">
+            {["No Experience Needed", "Base + Commission", "Remote", "Structured Training"].map((item) => (
+              <button
+                key={item}
+                aria-pressed={quickFilter === item}
+                className={quickFilter === item ? "active" : ""}
+                onClick={() => {
+                  setQuickFilter((current) => current === item ? "" : item);
+                  setSearch("");
+                  document.getElementById("opportunities")?.scrollIntoView({ behavior: "smooth" });
+                }}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+          <div className="hero-trust-line">Built for ambitious graduates exploring SaaS, fintech, and medtech sales.</div>
           <div className="hero-footnote">
             <span>✳ &nbsp; Opportunities for what’s next</span>
             <span className="hero-footnote-right">No noise. Just good work.</span>
@@ -671,6 +727,7 @@ export default function Home() {
                     setLocation("");
                     setFilter("All roles");
                     setWorkplaceFilter("any");
+                    setQuickFilter("");
                     setSalaryRange([0, MAX_SALARY_FILTER]);
                   }}
                 >
@@ -732,9 +789,22 @@ export default function Home() {
                   </Link>
                   <h3>{job.title}</h3>
                   <p className="job-card-description">{job.description}</p>
+                  {(job.companyDescription || job.companyCulture) && (
+                    <details
+                      className="job-company-summary"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <summary>About the company &amp; culture</summary>
+                      {job.companyDescription && <p>{job.companyDescription}</p>}
+                      {job.companyCulture && <p>{job.companyCulture}</p>}
+                    </details>
+                  )}
                   <div className="job-tags">
                     <span>{job.location}</span>
                     <span>{typeLabels[job.employmentType] || job.employmentType}</span>
+                    {job.requirements?.yearsExperience === 0 && <span>Entry level</span>}
+                    {job.description.toLowerCase().includes("training") && <span>Training mentioned</span>}
+                    {job.description.toLowerCase().includes("commission") && <span>Commission mentioned</span>}
                     <span>
                       {job.workplaceType === "remote"
                         ? "Remote"
@@ -764,27 +834,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+      </>}
 
-      <footer className="public-footer">
-        <div className="footer-inner">
-          <Link className="brand" href="/">
-            <Image
-              src="/hirzologo.jpg"
-              alt="Hirzo"
-              width={90}
-              height={52}
-              unoptimized
-              className="brand-logo"
-            />
-          </Link>
-          <span>Your next great role starts here.</span>
-          <div>
-            <Link href="/employers">For employers ↗</Link>
-            <Link href="/workspace">Employer workspace ↗</Link>
-          </div>
-          <small>© {new Date().getFullYear()} Hirzo. Made for what’s next.</small>
-        </div>
-      </footer>
+      <PublicTabs activeTab={activeTab} />
 
       {selected && (
         <div

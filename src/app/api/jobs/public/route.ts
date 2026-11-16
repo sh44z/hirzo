@@ -23,7 +23,7 @@ export async function GET() {
       )
       .populate({
         path: "employerId",
-        select: "companyName companyLogo",
+        select: "companyName companyLogo companyDescription companyCulture",
         match: { active: { $ne: false } },
       })
       .sort({ featured: -1, createdAt: -1 })
@@ -43,11 +43,15 @@ export async function GET() {
             _id?: { toString(): string } | string;
             companyName?: string;
             companyLogo?: string;
+            companyDescription?: string;
+            companyCulture?: string;
           } | null;
           return {
             id: String(job._id),
             companyId: String(employer?._id || ""),
             companyName: employer?.companyName || "Confidential employer",
+            companyDescription: employer?.companyDescription || "",
+            companyCulture: employer?.companyCulture || "",
             companyLogo:
               employer?.companyLogo && employer._id
                 ? `/api/employers/${String(employer._id)}/logo`

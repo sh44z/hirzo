@@ -138,6 +138,17 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     if (!application) return notFound("Application not found");
 
+    if (
+      parsed.data.status === "interview" &&
+      application.status !== "shortlisted" &&
+      application.status !== "interview"
+    ) {
+      return NextResponse.json(
+        { error: "Shortlist the candidate before starting a video interview." },
+        { status: 409 },
+      );
+    }
+
     application.status = parsed.data.status;
     if (parsed.data.notes !== undefined) {
       application.notes = parsed.data.notes;

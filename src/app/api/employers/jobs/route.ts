@@ -7,7 +7,7 @@ import type { IApplication } from "@/models/Application";
 import { MatchResult } from "@/models/MatchResult";
 import { Assignment } from "@/models/Assignment";
 import { calculateMatchScore } from "@/lib/job-matching";
-import type { CandidateProfile } from "@/types";
+import type { CandidateProfile, VideoQuestion } from "@/types";
 
 export async function GET() {
   try {
@@ -24,7 +24,7 @@ export async function GET() {
           employerId: session.employerId,
           jobId: { $in: jobs.map((job) => job._id) },
         })
-          .select("jobId candidateName candidateEmail candidatePhone cvFileName candidateProfile status createdAt virtualInterviewQuestions virtualInterviewTokenHash virtualInterviewAnswers virtualInterviewSubmittedAt")
+          .select("jobId candidateName candidateEmail candidatePhone cvFileName candidateProfile videoAnswers status createdAt virtualInterviewQuestions virtualInterviewTokenHash virtualInterviewAnswers virtualInterviewSubmittedAt")
           .sort({ createdAt: -1 })
           .lean()
       : [];
@@ -147,6 +147,17 @@ export async function GET() {
                   expiresAt: answer.expiresAt,
                   videoUrl: `/api/employers/applications/${String(application._id)}/interview-videos/${encodeURIComponent(answer.questionId)}`,
                 })),
+              videoAnswers: (application.videoAnswers || []).map(
+                (answer: IApplication["videoAnswers"][number]) => ({
+                  questionId: answer.questionId,
+                  question:
+                    (job.videoQuestions || []).find(
+                      (question: VideoQuestion) =>
+                        question.id === answer.questionId,
+                    )?.question || "Candidate video response",
+                  videoUrl: answer.videoUrl,
+                }),
+              ),
             };
           },
         ),

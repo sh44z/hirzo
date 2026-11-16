@@ -48,7 +48,9 @@ Visit `/` for the public job board, `/workspace` for employer registration/sign-
 
 Employers can create a job-level assignment template with long responses, multiple choice, file uploads, or video/audio links, then customize and send it while shortlisting a candidate. Invitations use a random token stored as a hash, expire after 14 days if unopened, and start an optional time limit on first open. Candidate text drafts are saved in that browser's local storage. Assignment files are limited to 8 MB each and 12 MB total.
 
-Premium and Full Recruitment jobs can define up to 10 virtual interview questions, each with a 15-second to 5-minute response limit. Assignment prompts are delivered only through the secure assignment invitation after shortlisting; virtual interview questions are delivered only after an employer reviews the assignment and marks it as passed. Neither assignment nor virtual interview prompts are included in public job listings or application forms. Candidates record responses in their browser; uploads are sent as 3 MB chunks and assembled server-side into MongoDB GridFS. Video file metadata and every GridFS chunk have MongoDB TTL indexes for three-day retention. MongoDB's TTL monitor removes expired records asynchronously (normally within about a minute after expiry). Video playback is streamed from GridFS through an employer-authenticated route. Configure both optional Resend variables to email invitations automatically; otherwise, the workspace provides a secure link and email-draft option.
+Premium and Full Recruitment jobs can define up to 10 virtual interview questions, each with a 15-second to 5-minute response limit. Assignment and virtual interview invitations are available only after shortlisting. Neither assignment nor virtual interview prompts are included in public job listings or application forms. Recruiters can review candidate video links and submitted virtual-interview videos in the workspace. Candidates record responses in their browser; uploads are sent as 3 MB chunks and assembled server-side into MongoDB GridFS. Video file metadata and every GridFS chunk have MongoDB TTL indexes for three-day retention. MongoDB's TTL monitor removes expired records asynchronously (normally within about a minute after expiry). Video playback is streamed from GridFS through an employer-authenticated route. Configure both optional Resend variables to email invitations automatically; otherwise, the workspace provides a secure link and email-draft option.
+
+Moving an applicant to Offer extended opens an editable offer letter with the employer's logo. Employers can download the letter as an HTML document or create an email draft addressed to the applicant.
 
 Each job requirements category (skills, qualifications, responsibilities, and other requirements) accepts up to 100 items, with each item limited to 200 characters.
 
@@ -151,12 +153,12 @@ Create/update job body example:
 | `GET` | `/api/employers/applications/:applicationId` | Review CV + answers |
 | `PATCH` | `/api/employers/applications/:applicationId` | Update pipeline status |
 | `POST` | `/api/employers/applications/:applicationId/assignment` | Shortlist and issue an assignment link |
-| `POST` | `/api/employers/applications/:applicationId/virtual-interview` | Invite an applicant after a reviewed, passing assignment |
+| `POST` | `/api/employers/applications/:applicationId/virtual-interview` | Invite a shortlisted applicant |
 | `GET` | `/api/employers/applications/:applicationId/interview-videos/:questionId` | Stream a submitted video response while it is retained |
 | `GET` / `PATCH` | `/api/employers/assignments/:assignmentId` | Read submitted answers or save an internal scorecard |
 | `GET` | `/api/employers/assignments/:assignmentId/files/:questionId` | Download a submitted assignment file |
 
-Status values: `applied` → `shortlisted` → `interview` → `hired` (or `rejected`). The employer sends a virtual interview invitation from a reviewed assignment scorecard with a passing decision; moving an applicant directly to `interview` is not allowed.
+Status values: `applied` → `shortlisted` → `interview` → `offer_extended` → `hired` (or `rejected`). Applicants must be shortlisted before they can be moved to `interview` or invited to a virtual interview.
 
 ```json
 { "status": "shortlisted", "notes": "Strong CV, good video answers" }
@@ -185,10 +187,10 @@ Employer registers/logs in
   → shortlist and optionally send an assignment
   → candidate submits using a secure, account-free link
   → employer reviews responses and scores the submission
-  → assignment pass unlocks a secure virtual video interview invitation
+  → shortlisted candidate can be invited to a secure virtual video interview
   → candidate records employer-defined answers and submits
-  → employer streams the video answers from MongoDB
-  → live interview / hire / reject
+  → employer reviews submitted video answers
+  → live interview / offer extended (edit and download a branded letter or draft an email) / hire / reject
 ```
 
 ## Next

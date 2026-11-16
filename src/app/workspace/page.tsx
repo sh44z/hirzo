@@ -73,6 +73,11 @@ type Applicant = {
   assignment?: AssignmentSummary;
   virtualInterviewStatus?: "not_invited" | "invited" | "submitted";
   virtualInterviewSubmittedAt?: string;
+  videoAnswers?: Array<{
+    questionId: string;
+    question: string;
+    videoUrl: string;
+  }>;
   virtualInterviewAnswers?: Array<{
     questionId: string;
     question: string;
@@ -88,6 +93,12 @@ type ContactDraft = {
   applicant: Applicant;
   jobTitle: string;
   mode: "message" | "interview";
+};
+type OfferLetterDraft = {
+  applicant: Applicant;
+  jobTitle: string;
+  date: string;
+  body: string;
 };
 type AssignmentReview = {
   id: string;
@@ -123,6 +134,19 @@ function prepareAssignmentTemplate(
           : undefined,
     })),
   };
+}
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[character];
+  });
 }
 
 function AssignmentTemplateEditor({
@@ -555,6 +579,9 @@ export default function WorkspacePage() {
     emailMessage: string;
   } | null>(null);
   const [copiedInterviewLink, setCopiedInterviewLink] = useState(false);
+  const [offerLetterDraft, setOfferLetterDraft] =
+    useState<OfferLetterDraft | null>(null);
+  const [offerLetterError, setOfferLetterError] = useState("");
   const [assignmentReview, setAssignmentReview] =
     useState<AssignmentReview | null>(null);
   const [assignmentReviewOpen, setAssignmentReviewOpen] = useState(false);
@@ -1009,6 +1036,33 @@ export default function WorkspacePage() {
           ),
         })),
       );
+      if (status === "offer_extended") {
+        const jobTitle =
+          jobs.find((job) =>
+            job.applicants.some((item) => item.id === applicant.id),
+          )?.title || "the role";
+        const companyName = employer?.companyName || "our company";
+        const date = new Date().toLocaleDateString("en-GB");
+        setOfferLetterDraft({
+          applicant,
+          jobTitle,
+          date,
+          body: [
+            `Dear ${applicant.candidateName},`,
+            "",
+            `We are pleased to offer you the position of ${jobTitle} at ${companyName}.`,
+            "",
+            "Please add the salary, proposed start date, and any other terms of employment before sending this offer.",
+            "",
+            "Please reply to this letter to let us know whether you accept. We look forward to welcoming you to the team.",
+            "",
+            "Kind regards,",
+            employer?.contactName || "",
+            companyName,
+          ].join("\n"),
+        });
+        setOfferLetterError("");
+      }
     } catch (applicantError) {
       setError(
         applicantError instanceof Error
@@ -1087,6 +1141,10 @@ export default function WorkspacePage() {
     }
 
   async function sendVirtualInterview(applicant: Applicant) {
+    if (applicant.status !== "shortlisted" && applicant.status !== "interview") {
+      setError("Shortlist the candidate before sending a video interview.");
+      return;
+    }
     setUpdatingApplicant(applicant.id);
     setError("");
     try {
@@ -1128,6 +1186,55 @@ export default function WorkspacePage() {
       );
     } finally {
       setUpdatingApplicant("");
+    }
+  }
+
+  async function downloadOfferLetter() {
+    if (!offerLetterDraft || !employer) return;
+    setOfferLetterError("");
+    try {
+      let logoDataUrl = "";
+      if (employer.companyLogo) {
+        const response = await fetch(employer.companyLogo);
+        if (!response.ok) {
+          throw new Error("Could not load your company logo for the letter.");
+        }
+        const logo = await response.blob();
+        logoDataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            if (typeof reader.result === "string") resolve(reader.result);
+            else reject(new Error("Could not prepare your company logo."));
+          };
+          reader.onerror = () =>
+            reject(new Error("Could not prepare your company logo."));
+          reader.readAsDataURL(logo);
+        });
+      }
+      const companyName = escapeHtml(employer.companyName);
+      const logoMarkup = logoDataUrl
+        ? `<img src="${logoDataUrl}" alt="${companyName} logo" style="max-width:180px;max-height:70px;object-fit:contain">`
+        : `<strong>${companyName}</strong>`;
+      const body = escapeHtml(offerLetterDraft.body).replace(/\r?\n/g, "<br>");
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>Offer letter for ${escapeHtml(offerLetterDraft.applicant.candidateName)}</title><style>body{max-width:760px;margin:48px auto;padding:0 28px;color:#332f27;font:15px/1.7 Georgia,serif}header{padding-bottom:18px;border-bottom:1px solid #ddd;margin-bottom:28px}time{color:#777;font:13px Arial,sans-serif}.letter{white-space:normal}</style></head><body><header>${logoMarkup}<p>${companyName}</p></header><time>${escapeHtml(offerLetterDraft.date)}</time><p><strong>To:</strong> ${escapeHtml(offerLetterDraft.applicant.candidateName)}<br><strong>Position:</strong> ${escapeHtml(offerLetterDraft.jobTitle)}</p><main class="letter">${body}</main></body></html>`;
+      const blobUrl = URL.createObjectURL(
+        new Blob([html], { type: "text/html;charset=utf-8" }),
+      );
+      const link = document.createElement("a");
+      const safeName = offerLetterDraft.applicant.candidateName
+        .replace(/[^a-z0-9]+/gi, "-")
+        .replace(/^-|-$/g, "")
+        .toLowerCase();
+      link.href = blobUrl;
+      link.download = `${safeName || "candidate"}-offer-letter.html`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } catch (downloadError) {
+      setOfferLetterError(
+        downloadError instanceof Error
+          ? downloadError.message
+          : "Could not download the offer letter.",
+      );
     }
   }
 
@@ -1791,11 +1898,20 @@ export default function WorkspacePage() {
                                       <option
                                         key={stage.value}
                                         value={stage.value}
+                                        disabled={
+                                          stage.value === "interview" &&
+                                          applicant.status !== "shortlisted" &&
+                                          applicant.status !== "interview"
+                                        }
                                       >
                                         {stage.label}
-                                        {stage.value === "interview" &&
-                                        job.postingPlan === "basic"
-                                          ? " (video invites require Premium)"
+                                        {stage.value === "interview"
+                                          ? applicant.status !== "shortlisted" &&
+                                            applicant.status !== "interview"
+                                            ? " (shortlist first)"
+                                            : job.postingPlan === "basic"
+                                              ? " (video invites require Premium)"
+                                              : ""
                                           : ""}
                                       </option>
                                     ))}
@@ -1827,7 +1943,8 @@ export default function WorkspacePage() {
                                       : "Review assignment"}
                                   </button>
                                 ) : null}
-                                {availableVideoAnswers.length > 0 && (
+                                {(applicant.videoAnswers?.length || 0) > 0 ||
+                                availableVideoAnswers.length > 0 ? (
                                   <div
                                     className="applicant-tabs"
                                     role="tablist"
@@ -1846,11 +1963,16 @@ export default function WorkspacePage() {
                                         )
                                       }
                                     >
-                                      Video interview <span>New</span>
+                                      Video responses <span>New</span>
                                     </button>
                                   </div>
-                                )}
-                                {applicant.virtualInterviewStatus !== "submitted" && (
+                                ) : null}
+                                {(applicant.status === "shortlisted" ||
+                                  (applicant.status === "interview" &&
+                                    applicant.virtualInterviewStatus ===
+                                      "invited")) &&
+                                  applicant.virtualInterviewStatus !==
+                                    "submitted" && (
                                   <>
                                     <button
                                       className="button button-light small-button"
@@ -1901,7 +2023,8 @@ export default function WorkspacePage() {
                                   Schedule
                                 </button>
                               </div>
-                              {availableVideoAnswers.length > 0 && (
+                              {((applicant.videoAnswers?.length || 0) > 0 ||
+                                availableVideoAnswers.length > 0) && (
                                 <section
                                   className="applicant-video-panel"
                                   id={`video-panel-${applicant.id}`}
@@ -1922,6 +2045,27 @@ export default function WorkspacePage() {
                                         controls
                                         playsInline
                                       />
+                                    </article>
+                                  ))}
+                                  {(applicant.videoAnswers || []).map((answer) => (
+                                    <article
+                                      className="interview-question"
+                                      key={`application-${answer.questionId}`}
+                                    >
+                                      <strong>{answer.question}</strong>
+                                      <video
+                                        className="interview-video-preview"
+                                        src={answer.videoUrl}
+                                        controls
+                                        playsInline
+                                      />
+                                      <a
+                                        href={answer.videoUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                      >
+                                        Open video response
+                                      </a>
                                     </article>
                                   ))}
                                 </section>
@@ -2659,6 +2803,97 @@ export default function WorkspacePage() {
                 }}
               >
                 {copiedAssignmentLink ? "Link copied" : "Copy link"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {offerLetterDraft && employer && (
+        <div className="modal-backdrop">
+          <section
+            className="job-modal offer-letter-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="offer-letter-title"
+          >
+            <div className="modal-heading">
+              <div>
+                <div className="eyebrow">OFFER EXTENDED</div>
+                <h2 id="offer-letter-title">
+                  Offer for {offerLetterDraft.applicant.candidateName}
+                </h2>
+              </div>
+              <button
+                className="icon-button close-button"
+                aria-label="Close"
+                onClick={() => setOfferLetterDraft(null)}
+              >
+                ×
+              </button>
+            </div>
+            <p className="muted">
+              Review and edit the offer before downloading it or creating an
+              email draft for the candidate.
+            </p>
+            <article className="offer-letter-preview">
+              <div className="offer-letter-brand">
+                {employer.companyLogo ? (
+                  <Image
+                    src={employer.companyLogo}
+                    alt={`${employer.companyName} logo`}
+                    width={180}
+                    height={70}
+                    unoptimized
+                  />
+                ) : (
+                  <strong>{employer.companyName}</strong>
+                )}
+              </div>
+              <time>{offerLetterDraft.date}</time>
+              <strong>To: {offerLetterDraft.applicant.candidateName}</strong>
+              <strong>Position: {offerLetterDraft.jobTitle}</strong>
+              <p>{offerLetterDraft.body}</p>
+            </article>
+            <label>
+              Offer letter
+              <textarea
+                rows={11}
+                maxLength={5000}
+                value={offerLetterDraft.body}
+                onChange={(event) =>
+                  setOfferLetterDraft({
+                    ...offerLetterDraft,
+                    body: event.target.value,
+                  })
+                }
+              />
+            </label>
+            {offerLetterError && (
+              <p className="offer-letter-error" role="alert">
+                {offerLetterError}
+              </p>
+            )}
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="button button-light"
+                onClick={() => setOfferLetterDraft(null)}
+              >
+                Close
+              </button>
+              <a
+                className="button button-light"
+                href={`mailto:${encodeURIComponent(offerLetterDraft.applicant.candidateEmail)}?subject=${encodeURIComponent(`Offer for ${offerLetterDraft.jobTitle}`)}&body=${encodeURIComponent(`${offerLetterDraft.date}\n\n${offerLetterDraft.body}`)}`}
+              >
+                Create email draft
+              </a>
+              <button
+                type="button"
+                className="button button-dark"
+                onClick={() => void downloadOfferLetter()}
+              >
+                Download offer letter
               </button>
             </div>
           </section>

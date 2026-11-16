@@ -118,6 +118,15 @@ export async function POST(request: NextRequest, { params }: Params) {
       employerId: session.employerId,
     });
     if (!application) return notFound("Application not found");
+    if (
+      application.status !== "shortlisted" &&
+      application.status !== "interview"
+    ) {
+      return NextResponse.json(
+        { error: "Shortlist the candidate before sending a video interview." },
+        { status: 409 },
+      );
+    }
 
     const job = await Job.findOne({
       _id: application.jobId,

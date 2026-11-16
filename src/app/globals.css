@@ -45,7 +45,7 @@ button { color: inherit; }
 .text-link { color: #5a5240; font-size: 13px; font-weight: 600; }
 .text-link:hover { color: #92835f; }
 .muted { color: var(--muted); font-size: 14px; line-height: 1.7; }
-.eyebrow { color: #938c7d; font-size: 10px; font-weight: 700; letter-spacing: 1.7px; }
+.eyebrow { color: var(--accent-dark); font-size: 10px; font-weight: 700; letter-spacing: 1.7px; }
 
 /* Public job board */
 .public-site { overflow: hidden; background: #f8fafc; }
@@ -546,14 +546,14 @@ button { color: inherit; }
 .sales-training-section { padding: 92px 0; background: #f1efe8; }
 .sales-training-inner, .pricing-inner { width: min(1120px, calc(100% - 64px)); margin: auto; }
 .sales-training-heading, .pricing-heading { display: flex; align-items: end; justify-content: space-between; gap: 30px; margin: 28px 0 35px; }
-.sales-training-heading h2, .pricing-heading h2 { margin: 0; color: #373328; font: 48px/.98 Georgia, serif; letter-spacing: -1.7px; }
-.sales-training-heading h2 em, .pricing-heading h2 em { color: #8e8266; font-weight: 400; }
-.sales-training-heading p, .pricing-heading p { max-width: 430px; margin: 12px 0 0; color: #77736a; font-size: 12px; line-height: 1.8; }
+.sales-training-heading h2, .pricing-heading h2 { margin: 0; color: var(--ink); font: 48px/.98 Georgia, serif; letter-spacing: -1.7px; }
+.sales-training-heading h2 em, .pricing-heading h2 em { color: var(--accent); font-weight: 400; }
+.sales-training-heading p, .pricing-heading p { max-width: 430px; margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
 .training-module-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
 .training-module-card { min-height: 170px; padding: 17px 15px; border: 1px solid #e4e0d6; border-radius: 7px; background: #faf9f4; }
-.training-module-card > span { color: #9a8d70; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
-.training-module-card h3 { margin: 24px 0 8px; color: #4a4437; font: 17px Georgia, serif; }
-.training-module-card p { margin: 0; color: #807c73; font-size: 10px; line-height: 1.7; }
+.training-module-card > span { color: var(--accent-dark); font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+.training-module-card h3 { margin: 24px 0 8px; color: var(--ink); font: 17px Georgia, serif; }
+.training-module-card p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.7; }
 .pricing-section { padding: 91px 0 100px; background: #faf9f4; scroll-margin-top: 20px; }
 .pricing-heading { align-items: end; }
 .pricing-heading p { margin: 0 0 3px; }

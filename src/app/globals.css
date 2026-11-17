@@ -545,15 +545,31 @@ button { color: inherit; }
 .employer-hiring-journey li span { flex: 1; }
 .sales-training-section { padding: 92px 0; background: #f1efe8; }
 .sales-training-inner, .pricing-inner { width: min(1120px, calc(100% - 64px)); margin: auto; }
+.training-offer { padding: 42px; border: 1px solid rgba(165, 180, 252, .2); border-radius: 22px; background: linear-gradient(125deg, #171942, #101a2d 68%, #102a35); color: #fff; box-shadow: 0 18px 38px rgba(16, 24, 40, .15); }
+.training-offer-kicker { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border: 1px solid rgba(129, 140, 248, .38); border-radius: 99px; background: rgba(99, 102, 241, .14); color: #c7d2fe; font-size: 10px; font-weight: 700; letter-spacing: .3px; }
+.training-offer h2 { margin: 20px 0 10px; color: #fff; font: 40px/1.1 Arial, Helvetica, sans-serif; letter-spacing: -1.5px; }
+.training-offer-copy { max-width: 700px; margin: 0 0 27px; color: #d3dcf3; font-size: 14px; line-height: 1.7; }
 .sales-training-heading, .pricing-heading { display: flex; align-items: end; justify-content: space-between; gap: 30px; margin: 28px 0 35px; }
 .sales-training-heading h2, .pricing-heading h2 { margin: 0; color: var(--ink); font: 48px/.98 Georgia, serif; letter-spacing: -1.7px; }
 .sales-training-heading h2 em, .pricing-heading h2 em { color: var(--accent); font-weight: 400; }
 .sales-training-heading p, .pricing-heading p { max-width: 430px; margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
-.training-module-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.training-module-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .training-module-card { min-height: 170px; padding: 17px 15px; border: 1px solid #e4e0d6; border-radius: 7px; background: #faf9f4; }
 .training-module-card > span { color: var(--accent-dark); font-size: 10px; font-weight: 700; letter-spacing: 1px; }
 .training-module-card h3 { margin: 24px 0 8px; color: var(--ink); font: 17px Georgia, serif; }
 .training-module-card p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.7; }
+.training-offer .training-module-card { min-height: 106px; padding: 15px 17px; border-color: rgba(203, 213, 225, .16); border-radius: 15px; background: rgba(255, 255, 255, .06); box-shadow: none; }
+.training-offer .training-module-card h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; color: #a5f3fc; font: 600 13px Arial, Helvetica, sans-serif; }
+.training-offer .training-module-card:nth-child(2) h3 { color: #a5b4fc; }
+.training-offer .training-module-card:nth-child(3) h3 { color: #fbbf24; }
+.training-offer .training-module-card:nth-child(4) h3 { color: #7dd3fc; }
+.training-offer .training-module-card h3 span { font-size: 15px; }
+.training-offer .training-module-card p { color: #d4dbea; font-size: 11px; line-height: 1.6; }
+.training-offer-footer { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 25px; padding-top: 20px; border-top: 1px solid rgba(203, 213, 225, .16); }
+.training-offer-footer > div > strong { color: #fff; font-size: 32px; letter-spacing: -1px; }
+.training-offer-footer > div > span { color: #dbeafe; font-size: 12px; }
+.training-offer-footer p { max-width: 290px; margin: 5px 0 0; color: #34d399; font-size: 11px; line-height: 1.5; }
+.training-offer-footer .button { min-width: 220px; min-height: 54px; }
 .pricing-section { padding: 91px 0 100px; background: #faf9f4; scroll-margin-top: 20px; }
 .pricing-heading { align-items: end; }
 .pricing-heading p { margin: 0 0 3px; }
@@ -564,6 +580,9 @@ button { color: inherit; }
 .pricing-card > strong { color: #514a3b; font: 30px Georgia, serif; }
 .pricing-card > p { min-height: 37px; margin: 6px 0 14px; color: #858178; font-size: 10px; line-height: 1.6; }
 .pricing-card ul { display: grid; gap: 8px; margin: 0 0 20px; padding-left: 15px; color: #716d64; font-size: 10px; line-height: 1.45; }
+.pricing-feature-heading { margin: 0 0 9px; color: #64748b; font-size: 8px; font-weight: 700; letter-spacing: .7px; }
+.pricing-card ul li strong { color: #334155; }
+.pricing-card ul li span { display: block; margin-top: 2px; color: #64748b; }
 .pricing-card .button { width: 100%; gap: 8px; margin-top: auto; font-size: 10px; }
 .pricing-service-card { border-color: #dcd5c6; background: #f6f3eb; }
 .contact-modal-copy { margin: -8px 0 6px; color: #77736a; font-size: 11px; line-height: 1.7; }
@@ -598,7 +617,7 @@ button { color: inherit; }
 .pricing-section { background: #f8fafc; }
 
 @media (max-width: 1000px) {
-  .training-module-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .training-module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pricing-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
@@ -609,6 +628,11 @@ button { color: inherit; }
   .employer-hiring-journey { padding: 18px; }
   .sales-training-section, .pricing-section { padding: 65px 0; }
   .sales-training-inner, .pricing-inner { width: calc(100% - 38px); }
+  .training-offer { padding: 26px 20px; border-radius: 17px; }
+  .training-offer h2 { font-size: 32px; }
+  .training-offer-copy { font-size: 12px; }
+  .training-offer-footer { align-items: flex-start; flex-direction: column; }
+  .training-offer-footer .button { width: 100%; }
   .sales-training-heading, .pricing-heading { align-items: flex-start; flex-direction: column; margin: 24px 0 27px; }
   .sales-training-heading h2, .pricing-heading h2 { font-size: 41px; }
   .sales-training-heading p, .pricing-heading p { font-size: 10px; }

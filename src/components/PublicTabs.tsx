@@ -12,29 +12,28 @@ type ContactService = "full_recruitment" | "hiring_training";
 
 const phoneTrainingModules = [
   {
-    number: "01",
-    title: "Pre-call prep",
-    description: "Research the prospect, set a clear goal, and prepare a confident opener.",
+    icon: "↗",
+    title: "Cold Call Frameworks & Openers",
+    description:
+      "Pattern-interrupt hooks, permission-based openers, and tonality mastery to earn the first 30 seconds.",
   },
   {
-    number: "02",
-    title: "Tone & delivery",
-    description: "Build a natural, clear delivery and learn to listen actively.",
+    icon: "⌕",
+    title: "Discovery & Pain Questioning",
+    description:
+      "Uncovering real business pain, BANT/MEDDIC qualification criteria, and active listening triggers.",
   },
   {
-    number: "03",
-    title: "The 5-Stage Cold Call Framework",
-    description: "Follow a simple structure from introduction through to agreed next steps.",
+    icon: "!",
+    title: "Objection Handling Playbooks",
+    description:
+      'Live rebuttals for "send me an email," "not interested," "no budget," and gatekeeper navigation.',
   },
   {
-    number: "04",
-    title: "Objection Handling Matrix",
-    description: "Respond to common objections with empathy and relevant follow-up questions.",
-  },
-  {
-    number: "05",
-    title: "Closing & Post-Call Execution",
-    description: "Confirm the next step, record useful notes, and follow up consistently.",
+    icon: "♩",
+    title: "Live Roleplay & Call Reviews",
+    description:
+      "1-on-1 call tear-downs, custom talk tracks tailored to your ICP, and closing for the booked meeting.",
   },
 ] as const;
 
@@ -97,30 +96,37 @@ export default function PublicTabs({
     <div className="public-tabs-content">
       {activeTab === "training" && <section className="sales-training-section" id="sales-training">
         <div className="sales-training-inner">
-          <div className="section-kicker">
-            <span>✳</span> PRACTICAL TRAINING AFTER YOU HIRE
-          </div>
-          <div className="sales-training-heading">
-            <div>
-              <h2>
-                Basic phone training.
-                <br />
-                <em>Ready for their first calls.</em>
-              </h2>
-              <p>
-                Once you hire the graduate, we can train them in the core phone
-                skills they need to get started in an entry-level sales role.
-              </p>
+          <div className="training-offer">
+            <div className="training-offer-kicker">
+              <span>♧</span> ADD-ON OR STANDALONE REVENUE ENABLEMENT
             </div>
-          </div>
-          <div className="training-module-grid">
-            {phoneTrainingModules.map((module) => (
-              <article className="training-module-card" key={module.number}>
-                <span>{module.number}</span>
-                <h3>{module.title}</h3>
-                <p>{module.description}</p>
-              </article>
-            ))}
+            <h2>Comprehensive SDR Phone Training</h2>
+            <p className="training-offer-copy">
+              Hiring great reps is only half the battle. Equip your new hires or
+              existing SDR team with a repeatable, high-converting cold calling
+              system built to book qualified meetings consistently.
+            </p>
+            <div className="training-module-grid">
+              {phoneTrainingModules.map((module) => (
+                <article className="training-module-card" key={module.title}>
+                  <h3><span aria-hidden="true">{module.icon}</span>{module.title}</h3>
+                  <p>{module.description}</p>
+                </article>
+              ))}
+            </div>
+            <div className="training-offer-footer">
+              <div>
+                <strong>£{HIRING_TRAINING_AMOUNT.toLocaleString("en-GB")}</strong>
+                <span> / hiring &amp; training package</span>
+                <p>Bundle with any Hiring Plan and save 15% on team cohorts.</p>
+              </div>
+              <button
+                className="button button-dark"
+                onClick={() => openContactForm("hiring_training")}
+              >
+                Contact us <span>→</span>
+              </button>
+            </div>
           </div>
           <div className="sales-101-grid">
             <article className="sales-101-card">
@@ -156,12 +162,14 @@ export default function PublicTabs({
           </div>
           <div className="pricing-card-grid">
             <article className="pricing-card">
-              <span className="eyebrow">JOB POST</span>
+              <span className="eyebrow">SELF-SERVE HIRING</span>
               <h3>Basic</h3>
               <strong>£{JOB_POSTING_PLANS.basic.amount}</strong>
               <p>One-off price per job post.</p>
+              <div className="pricing-feature-heading">CORE FEATURES INCLUDED</div>
               <ul>
-                <li>Post a role on Hirzo</li>
+                <li><strong>Standard Job Listing Placement</strong> across the Hirzo talent network</li>
+                <li><strong>Basic Applicant Tracking</strong> &amp; visual pipeline view</li>
                 <li>Qualification questions</li>
                 <li>Shortlist and hire applicants</li>
               </ul>
@@ -170,28 +178,31 @@ export default function PublicTabs({
               </Link>
             </article>
             <article className="pricing-card">
-              <span className="eyebrow">JOB POST</span>
+              <span className="eyebrow">ENHANCED SCREENING &amp; CLOSING</span>
               <h3>Premium</h3>
               <strong>£{JOB_POSTING_PLANS.premium.amount}</strong>
               <p>One-off price per job post.</p>
+              <div className="pricing-feature-heading">EVERYTHING IN BASIC, PLUS:</div>
               <ul>
-                <li>Everything in Basic</li>
-                <li>CV screening and match scores</li>
-                <li>Featured job listing</li>
+                <li><strong>Featured Job Listing</strong><span>Priority top-of-feed placement and a highlighted badge for increased candidate visibility.</span></li>
+                <li><strong>Assignments &amp; Competency Tests</strong><span>Custom skills assessments and role-specific take-home challenges built into your pipeline.</span></li>
+                <li><strong>Async Virtual Video Interviews</strong><span>Send custom prompts and review candidate video answers on your schedule.</span></li>
+                <li><strong>Offer Letter &amp; Contract Drafting Help</strong><span>Customizable templates and hands-on drafting support.</span></li>
               </ul>
               <Link href="/workspace" className="button button-light">
                 Post a Premium job <span>→</span>
               </Link>
             </article>
             <article className="pricing-card pricing-service-card">
-              <span className="eyebrow">RECRUITMENT SUPPORT</span>
-              <h3>{JOB_POSTING_PLANS.full_recruitment.name}</h3>
+              <span className="eyebrow">DONE-FOR-YOU RECRUITING</span>
+              <h3>Recruitment Support</h3>
               <strong>£{JOB_POSTING_PLANS.full_recruitment.amount}</strong>
-              <p>End-to-end support to find and hire the right person.</p>
+              <p>For busy founders and hiring managers who want pre-vetted, interview-ready candidates delivered directly to their calendar.</p>
+              <div className="pricing-feature-heading">EVERYTHING IN PREMIUM, PLUS:</div>
               <ul>
-                <li>Candidate sourcing and screening</li>
-                <li>Interview support</li>
-                <li>Contract preparation</li>
+                <li><strong>We Find, Interview &amp; Qualify Candidates</strong><span>Active headhunting, structured first-round interviews, and skills verification.</span></li>
+                <li><strong>Onsite Interview Preparation</strong><span>Dedicated coaching and role briefing so finalists arrive prepared for the final round.</span></li>
+                <li><strong>Full Recruitment Consultant Service</strong><span>Pipeline strategy, salary benchmarking, feedback loops, and offer closing.</span></li>
               </ul>
               <button
                 className="button button-dark"

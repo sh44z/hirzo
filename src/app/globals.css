@@ -573,8 +573,10 @@ button { color: inherit; }
 .pricing-section { padding: 91px 0 100px; background: #faf9f4; scroll-margin-top: 20px; }
 .pricing-heading { align-items: end; }
 .pricing-heading p { margin: 0 0 3px; }
-.pricing-card-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.pricing-card-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding-top: 14px; }
 .pricing-card { display: flex; min-height: 355px; flex-direction: column; align-items: flex-start; padding: 21px 18px; border: 1px solid #e6e3db; border-radius: 8px; background: #fffefa; }
+.pricing-card-popular { position: relative; border-color: #7667ff; box-shadow: 0 10px 24px rgba(79, 70, 229, .14); }
+.pricing-popular-badge { position: absolute; top: -14px; left: 50%; padding: 6px 14px; border-radius: 999px; background: linear-gradient(110deg, #4f46e5, #7c3aed); color: #fff; font-size: 9px; font-weight: 700; letter-spacing: .45px; white-space: nowrap; transform: translateX(-50%); }
 .pricing-card .eyebrow { font-size: 8px; letter-spacing: 1.15px; }
 .pricing-card h3 { margin: 20px 0 8px; color: #433e32; font: 20px Georgia, serif; }
 .pricing-card > strong { color: #514a3b; font: 30px Georgia, serif; }

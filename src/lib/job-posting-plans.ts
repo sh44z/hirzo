@@ -10,7 +10,7 @@ export const JOB_POSTING_PLANS = {
   },
   premium: {
     name: "Premium job posting",
-    amount: 110,
+    amount: 199,
     features: [
       "Everything in Basic",
       "CV screening by Hirzo",

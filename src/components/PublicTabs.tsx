@@ -177,7 +177,8 @@ export default function PublicTabs({
                 Post a Basic job <span>→</span>
               </Link>
             </article>
-            <article className="pricing-card">
+            <article className="pricing-card pricing-card-popular">
+              <span className="pricing-popular-badge">✦ MOST POPULAR</span>
               <span className="eyebrow">ENHANCED SCREENING &amp; CLOSING</span>
               <h3>Premium</h3>
               <strong>£{JOB_POSTING_PLANS.premium.amount}</strong>

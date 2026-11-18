@@ -14,6 +14,8 @@ export interface JobPostingData {
   description: string;
   location: string;
   employmentType: EmploymentType;
+  workplaceType?: "onsite" | "hybrid" | "remote";
+  confidential: boolean;
   salaryMin?: number;
   salaryMax?: number;
   currency: string;

@@ -49,6 +49,7 @@ type Job = {
   postingPlan?: JobPostingPlan;
   postingPrice?: number;
   featured?: boolean;
+  confidential?: boolean;
   defaultAssignment?: AssignmentTemplate;
   interviewQuestions: VirtualInterviewQuestion[];
   createdAt: string;
@@ -752,6 +753,7 @@ export default function WorkspacePage() {
       location: String(form.get("location")),
       employmentType: String(form.get("employmentType")),
       workplaceType: String(form.get("workplaceType")),
+      confidential: form.get("confidential") === "on",
       currency: "GBP",
       status: String(form.get("status")),
       ...(form.get("salaryMin")
@@ -907,6 +909,7 @@ export default function WorkspacePage() {
       location: String(form.get("location")),
       employmentType: String(form.get("employmentType")),
       workplaceType: String(form.get("workplaceType")),
+      confidential: form.get("confidential") === "on",
       salaryMin: salaryMin ? Number(salaryMin) : null,
       salaryMax: salaryMax ? Number(salaryMax) : null,
       status: String(form.get("status")),
@@ -2246,6 +2249,16 @@ export default function WorkspacePage() {
                   </select>
                 </label>
               </div>
+              <label className="confidential-job-toggle">
+                <input type="checkbox" name="confidential" />
+                <span>
+                  <strong>Post this job confidentially</strong>
+                  <small>
+                    Hide your company name, logo, and profile from public job
+                    listings. Candidates will see “Confidential Company”.
+                  </small>
+                </span>
+              </label>
               <div className="form-row">
                 <label>
                   Salary from (£)
@@ -2510,6 +2523,20 @@ export default function WorkspacePage() {
                   </select>
                 </label>
               </div>
+              <label className="confidential-job-toggle">
+                <input
+                  type="checkbox"
+                  name="confidential"
+                  defaultChecked={editingJob.confidential}
+                />
+                <span>
+                  <strong>Post this job confidentially</strong>
+                  <small>
+                    Hide your company name, logo, and profile from public job
+                    listings. Candidates will see “Confidential Company”.
+                  </small>
+                </span>
+              </label>
               <div className="form-row">
                 <label>
                   Salary from (£)

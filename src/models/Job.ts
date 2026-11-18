@@ -29,6 +29,7 @@ export interface IJob {
   expiresAt: Date;
   lastRenewalPaymentId?: mongoose.Types.ObjectId;
   featured: boolean;
+  confidential: boolean;
   requirements: JobRequirements;
   paymentId?: mongoose.Types.ObjectId;
   qualificationQuestions: QualificationQuestion[];
@@ -167,6 +168,7 @@ const JobSchema = new Schema<IJob>(
       ref: "JobPostingPayment",
     },
     featured: { type: Boolean, default: false, index: true     },
+    confidential: { type: Boolean, default: false },
     requirements: { type: JobRequirementsSchema, default: () => ({}) },
     paymentId: {
       type: Schema.Types.ObjectId,

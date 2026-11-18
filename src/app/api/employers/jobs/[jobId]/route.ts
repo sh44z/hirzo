@@ -40,6 +40,7 @@ function serializeJob(job: InstanceType<typeof Job>) {
     postingPlan: job.postingPlan,
     postingPrice: job.postingPrice,
     featured: job.postingPlan === "premium",
+    confidential: job.confidential,
     requirements: job.requirements,
     qualificationQuestions: job.qualificationQuestions,
     videoQuestions: job.videoQuestions,
@@ -125,6 +126,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
     if (updates.workplaceType !== undefined) {
       job.workplaceType = updates.workplaceType;
+    }
+    if (updates.confidential !== undefined) {
+      job.confidential = updates.confidential;
     }
     if (updates.salaryMin === null) job.salaryMin = undefined;
     else if (updates.salaryMin !== undefined) job.salaryMin = updates.salaryMin;

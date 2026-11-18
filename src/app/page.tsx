@@ -29,6 +29,7 @@ type Job = {
   currency: string;
   createdAt: string;
   featured?: boolean;
+  confidential?: boolean;
   requirements?: {
     skills?: string[];
     yearsExperience?: number;
@@ -400,6 +401,26 @@ export default function Home() {
 
   return (
     <main className="public-site">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "Hirzo",
+            "url": "https://hirzo.com",
+            "description": "Entry-level sales jobs across the UK for graduates and career changers.",
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": "https://hirzo.com/?search={search_term_string}"
+              },
+              "query-input": "required name=search_term_string"
+            }
+          })
+        }}
+      />
       <nav className="public-nav">
         <div className="nav-inner">
           <Link className="brand" href="/">
@@ -575,13 +596,17 @@ export default function Home() {
                     )}
                     <span className="feature-badge">Featured</span>
                   </div>
-                  <Link
-                    className="job-card-company company-name-link"
-                    href={`/companies/${job.companyId}`}
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    {job.companyName}
-                  </Link>
+                  {job.confidential ? (
+                    <span className="job-card-company">{job.companyName}</span>
+                  ) : (
+                    <Link
+                      className="job-card-company company-name-link"
+                      href={`/companies/${job.companyId}`}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      {job.companyName}
+                    </Link>
+                  )}
                   <h3>{job.title}</h3>
                   <div className="job-tags">
                     <span>{job.location}</span>
@@ -780,13 +805,17 @@ export default function Home() {
                       ↗
                     </button>
                   </div>
-                  <Link
-                    className="job-card-company company-name-link"
-                    href={`/companies/${job.companyId}`}
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    {job.companyName}
-                  </Link>
+                  {job.confidential ? (
+                    <span className="job-card-company">{job.companyName}</span>
+                  ) : (
+                    <Link
+                      className="job-card-company company-name-link"
+                      href={`/companies/${job.companyId}`}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      {job.companyName}
+                    </Link>
+                  )}
                   <h3>{job.title}</h3>
                   <p className="job-card-description">{job.description}</p>
                   {(job.companyDescription || job.companyCulture) && (
@@ -851,11 +880,22 @@ export default function Home() {
         >
           <section className="job-modal role-modal">
             <div className="modal-heading">
-              <div
-                className={`job-company-icon ${colors[Math.max(0, jobs.findIndex((job) => job.id === selected.id)) % colors.length]}`}
-              >
-                {selected.companyName.slice(0, 1).toUpperCase()}
-              </div>
+              {selected.companyLogo ? (
+                <Image
+                  className="job-company-logo"
+                  src={selected.companyLogo}
+                  alt={`${selected.companyName} logo`}
+                  width={38}
+                  height={38}
+                  unoptimized
+                />
+              ) : (
+                <div
+                  className={`job-company-icon ${colors[Math.max(0, jobs.findIndex((job) => job.id === selected.id)) % colors.length]}`}
+                >
+                  {selected.companyName.slice(0, 1).toUpperCase()}
+                </div>
+              )}
               <button
                 className="icon-button close-button"
                 onClick={() => {
@@ -1102,13 +1142,19 @@ export default function Home() {
               </>
             ) : (
               <>
-                <Link
-                  className="eyebrow role-company-link"
-                  href={`/companies/${selected.companyId}`}
-                  onClick={() => setSelected(null)}
-                >
-                  {selected.companyName.toUpperCase()} · VIEW COMPANY
-                </Link>
+                {selected.confidential ? (
+                  <div className="eyebrow role-company-link">
+                    {selected.companyName.toUpperCase()}
+                  </div>
+                ) : (
+                  <Link
+                    className="eyebrow role-company-link"
+                    href={`/companies/${selected.companyId}`}
+                    onClick={() => setSelected(null)}
+                  >
+                    {selected.companyName.toUpperCase()} · VIEW COMPANY
+                  </Link>
+                )}
                 <h2>{selected.title}</h2>
                 <div className="job-tags role-tags">
                   <span>{selected.location}</span>

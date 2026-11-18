@@ -19,7 +19,7 @@ export async function GET() {
       $or: [{ moderationStatus: "approved" }, { moderationStatus: { $exists: false } }],
     })
       .select(
-        "title description location employmentType workplaceType salaryMin salaryMax currency qualificationQuestions requirements featured postingPlan createdAt expiresAt employerId",
+        "title description location employmentType workplaceType salaryMin salaryMax currency qualificationQuestions requirements featured confidential postingPlan createdAt expiresAt employerId",
       )
       .populate({
         path: "employerId",
@@ -46,14 +46,22 @@ export async function GET() {
             companyDescription?: string;
             companyCulture?: string;
           } | null;
+          const isConfidential =
+            (job as unknown as { confidential?: boolean }).confidential === true;
           return {
             id: String(job._id),
-            companyId: String(employer?._id || ""),
-            companyName: employer?.companyName || "Confidential employer",
-            companyDescription: employer?.companyDescription || "",
-            companyCulture: employer?.companyCulture || "",
+            companyId: isConfidential ? "" : String(employer?._id || ""),
+            companyName: isConfidential
+              ? "Confidential Company"
+              : employer?.companyName || "Confidential Company",
+            companyDescription: isConfidential
+              ? ""
+              : employer?.companyDescription || "",
+            companyCulture: isConfidential
+              ? ""
+              : employer?.companyCulture || "",
             companyLogo:
-              employer?.companyLogo && employer._id
+              !isConfidential && employer?.companyLogo && employer._id
                 ? `/api/employers/${String(employer._id)}/logo`
                 : undefined,
             title: job.title,
@@ -77,6 +85,7 @@ export async function GET() {
             ),
             requirements: job.requirements,
             featured: job.postingPlan === "premium",
+            confidential: isConfidential,
             createdAt: job.createdAt,
             expiresAt: job.expiresAt,
           };

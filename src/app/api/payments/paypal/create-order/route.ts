@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
         location: parsed.data.location,
         employmentType: parsed.data.employmentType,
         workplaceType: parsed.data.workplaceType,
+        confidential: parsed.data.confidential,
         salaryMin: parsed.data.salaryMin,
         salaryMax: parsed.data.salaryMax,
         currency: parsed.data.currency,

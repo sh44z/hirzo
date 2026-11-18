@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /workspace
+Disallow: /backoffice
+Disallow: /api/
+Sitemap: https://hirzo.com/sitemap.xml

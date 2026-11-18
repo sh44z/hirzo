@@ -140,6 +140,7 @@ export const createJobSchema = z.object({
     "temporary",
   ]),
   workplaceType: z.enum(["onsite", "hybrid", "remote"]).optional(),
+  confidential: z.boolean().optional().default(false),
   salaryMin: z.number().nonnegative().optional(),
   salaryMax: z.number().nonnegative().optional(),
   currency: z.string().length(3).optional().default("GBP"),

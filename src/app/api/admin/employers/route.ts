@@ -11,7 +11,7 @@ export async function GET() {
     if (error) return error;
     await connectDB();
     const [employers, jobs, counts, applicationCounts] = await Promise.all([
-      Employer.find().select("email companyName companyDescription companyCulture companyBenefits contactName active status jobPostingCredits createdAt").sort({ createdAt: -1 }).lean(),
+      Employer.find({ backofficeManaged: { $ne: true } }).select("email companyName companyDescription companyCulture companyBenefits contactName active status jobPostingCredits createdAt").sort({ createdAt: -1 }).lean(),
       Job.find()
         .select("employerId title status moderationStatus postingPlan postingPrice expiresAt createdAt")
         .sort({ createdAt: -1 })

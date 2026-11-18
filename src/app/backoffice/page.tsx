@@ -53,9 +53,21 @@ type ModerationJob = {
   status: JobStatus;
   moderationStatus: ModerationStatus;
   location: string;
+  confidential: boolean;
   createdAt: string;
   applicationsCount: number;
-  employer: { id: string; name: string; email: string } | null;
+  employer: { id: string; name: string; email: string; backofficeManaged: boolean } | null;
+};
+type BackofficeApplication = {
+  id: string;
+  candidateName: string;
+  candidateEmail: string;
+  candidatePhone: string;
+  status: "applied" | "shortlisted" | "interview" | "offer_extended" | "hired" | "rejected";
+  createdAt: string;
+  cvDownloadUrl?: string;
+  job: { id: string; title: string } | null;
+  employerName: string;
 };
 type AuditLog = {
   id: string;
@@ -83,7 +95,7 @@ type PlatformSettings = {
   maintenanceMode: boolean;
   notificationTemplates: NotificationTemplate[];
 };
-type Tab = "employers" | "moderation" | "candidates" | "sales_inquiries" | "settings" | "audit" | "accounts";
+type Tab = "employers" | "roles" | "applications" | "moderation" | "candidates" | "sales_inquiries" | "settings" | "audit" | "accounts";
 
 const employerStatuses: Array<{ value: EmployerStatus; label: string }> = [
   { value: "active", label: "Active" },
@@ -95,6 +107,8 @@ const employerStatuses: Array<{ value: EmployerStatus; label: string }> = [
 
 const tabs: Array<{ value: Tab; label: string; icon: string }> = [
   { value: "employers", label: "Employers", icon: "⌂" },
+  { value: "roles", label: "Post a role", icon: "+" },
+  { value: "applications", label: "Applications", icon: "♙" },
   { value: "moderation", label: "Job moderation", icon: "▤" },
   { value: "candidates", label: "Talent", icon: "♙" },
   { value: "sales_inquiries", label: "Sales inquiries", icon: "✉" },
@@ -124,6 +138,7 @@ export default function BackofficePage() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [salesInquiries, setSalesInquiries] = useState<SalesInquiry[]>([]);
   const [jobs, setJobs] = useState<ModerationJob[]>([]);
+  const [applications, setApplications] = useState<BackofficeApplication[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [settings, setSettings] = useState<PlatformSettings>({
     defaultJobExpirationDays: 30,
@@ -139,7 +154,11 @@ export default function BackofficePage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedEmployer, setSelectedEmployer] = useState<Employer | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [showRoleForm, setShowRoleForm] = useState(false);
+  const [roleOwnerType, setRoleOwnerType] = useState<"hirzo" | "employer" | "recruiter">("hirzo");
   const [creating, setCreating] = useState(false);
+  const [creatingRole, setCreatingRole] = useState(false);
+  const [updatingApplicationId, setUpdatingApplicationId] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
   const [savingJobId, setSavingJobId] = useState("");
   const [creditPlan, setCreditPlan] = useState<"basic" | "premium">("basic");
@@ -157,11 +176,12 @@ export default function BackofficePage() {
       }
       const meData = await meResponse.json();
       setAdmin(meData.admin);
-      const [employerData, accountData, candidateData, jobData, auditData, settingsData, inquiryData] = await Promise.all([
+      const [employerData, accountData, candidateData, jobData, applicationData, auditData, settingsData, inquiryData] = await Promise.all([
         fetch("/api/admin/employers").then(readResponse<{ employers: Employer[] }>),
         fetch("/api/admin/accounts").then(readResponse<{ accounts: Account[] }>),
         fetch("/api/admin/candidates").then(readResponse<{ candidates: Candidate[] }>),
         fetch("/api/admin/jobs").then(readResponse<{ jobs: ModerationJob[] }>),
+        fetch("/api/admin/applications").then(readResponse<{ applications: BackofficeApplication[] }>),
         fetch("/api/admin/audit").then(readResponse<{ logs: AuditLog[] }>),
         fetch("/api/admin/settings").then(readResponse<{ settings: PlatformSettings }>),
         fetch("/api/admin/contact-inquiries").then(readResponse<{ inquiries: SalesInquiry[] }>),
@@ -171,6 +191,7 @@ export default function BackofficePage() {
       setCandidates(candidateData.candidates);
       setSalesInquiries(inquiryData.inquiries);
       setJobs(jobData.jobs);
+      setApplications(applicationData.applications);
       setLogs(auditData.logs);
       setSettings(settingsData.settings);
       setSelectedEmployer((current) =>
@@ -349,6 +370,62 @@ export default function BackofficePage() {
     }
   }
 
+  async function createBackofficeRole(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCreatingRole(true);
+    const form = new FormData(event.currentTarget);
+    const ownerType = roleOwnerType;
+    const salaryMin = String(form.get("salaryMin") || "");
+    const salaryMax = String(form.get("salaryMax") || "");
+    const payload = {
+      title: form.get("title"),
+      description: form.get("description"),
+      location: form.get("location"),
+      employmentType: form.get("employmentType"),
+      workplaceType: form.get("workplaceType"),
+      confidential: form.get("confidential") === "on",
+      ...(salaryMin ? { salaryMin: Number(salaryMin) } : {}),
+      ...(salaryMax ? { salaryMax: Number(salaryMax) } : {}),
+      status: form.get("status"),
+      ownerType,
+      ...(ownerType !== "hirzo" ? { employerId: form.get("employerId") } : {}),
+    };
+    try {
+      const result = await readResponse<{ job: { title: string } }>(
+        await fetch("/api/admin/jobs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }),
+      );
+      setShowRoleForm(false);
+      setRoleOwnerType("hirzo");
+      await loadData();
+      showNotice(`“${result.job.title}” was added to roles.`);
+    } catch (error) {
+      showNotice(error instanceof Error ? error.message : "Could not create role.", true);
+    } finally {
+      setCreatingRole(false);
+    }
+  }
+
+  async function updateBackofficeApplication(application: BackofficeApplication, status: BackofficeApplication["status"]) {
+    setUpdatingApplicationId(application.id);
+    try {
+      await readResponse(await fetch(`/api/admin/applications?applicationId=${encodeURIComponent(application.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      }));
+      setApplications((current) => current.map((item) => item.id === application.id ? { ...item, status } : item));
+      showNotice(`${application.candidateName} moved to ${statusLabel(status).toLowerCase()}.`);
+    } catch (error) {
+      showNotice(error instanceof Error ? error.message : "Could not update applicant.", true);
+    } finally {
+      setUpdatingApplicationId("");
+    }
+  }
+
   async function toggleAdminAccount(account: Account) {
     try {
       await readResponse(await fetch(`/api/admin/accounts/${account.id}`, {
@@ -428,6 +505,7 @@ export default function BackofficePage() {
             <button key={item.value} className={`side-link ${tab === item.value ? "active" : ""}`} onClick={() => setTab(item.value)}>
               <span>{item.icon}</span>{item.label}
               {item.value === "moderation" && pendingJobs.length > 0 && <b className="nav-count">{pendingJobs.length}</b>}
+              {item.value === "applications" && applications.length > 0 && <b className="nav-count">{applications.length}</b>}
               {item.value === "sales_inquiries" && salesInquiries.length > 0 && <b className="nav-count">{salesInquiries.length}</b>}
             </button>
           ))}
@@ -446,10 +524,11 @@ export default function BackofficePage() {
         </header>
         <div className="workspace-inner admin-inner">
           <div className="page-intro">
-            <div><div className="eyebrow">PLATFORM CONTROL</div><h1>{tab === "employers" ? "Employer accounts" : pageTitle}</h1>
-              <p>{tab === "employers" ? "Search, review, and manage every employer on Hirzo." : tab === "moderation" ? "Review job posts before they reach job seekers." : tab === "candidates" ? "Review applicants, flag profiles, and manage data requests." : tab === "sales_inquiries" ? "Follow up with employers interested in recruitment and sales training." : tab === "settings" ? "Configure platform-wide defaults and maintenance." : tab === "audit" ? "A time-stamped record of administrative actions." : "Control who has access to the Hirzo backoffice."}</p>
+            <div><div className="eyebrow">PLATFORM CONTROL</div><h1>{tab === "employers" ? "Employer accounts" : tab === "roles" ? "Post and manage roles" : tab === "applications" ? "Applicant inbox" : pageTitle}</h1>
+              <p>{tab === "employers" ? "Search, review, and manage every employer on Hirzo." : tab === "roles" ? "Post roles for Hirzo or on behalf of an employer or recruiter account." : tab === "applications" ? "Review applications and move candidates through the same hiring stages used in workspace." : tab === "moderation" ? "Review job posts before they reach job seekers." : tab === "candidates" ? "Review applicants, flag profiles, and manage data requests." : tab === "sales_inquiries" ? "Follow up with employers interested in recruitment and sales training." : tab === "settings" ? "Configure platform-wide defaults and maintenance." : tab === "audit" ? "A time-stamped record of administrative actions." : "Control who has access to the Hirzo backoffice."}</p>
             </div>
             {tab === "accounts" && <button className="button button-dark" onClick={() => setShowAdd(true)}>＋ Add master account</button>}
+            {tab === "roles" && <button className="button button-dark" onClick={() => setShowRoleForm(true)}>＋ Post a role</button>}
           </div>
           {notice && <div className={`notice-banner ${noticeError ? "notice-error" : ""}`} role={noticeError ? "alert" : "status"}><span>{noticeError ? "!" : "✓"}</span>{notice}<button onClick={() => setNotice("")} aria-label="Dismiss">×</button></div>}
           {temporaryPassword && <div className="temporary-password"><div><strong>Temporary password</strong><span>Copy and share this securely. It cannot be retrieved after closing this panel.</span></div><code>{temporaryPassword}</code><button className="table-action" onClick={() => { void navigator.clipboard.writeText(temporaryPassword); showNotice("Temporary password copied."); }}>Copy</button><button className="icon-button" aria-label="Dismiss temporary password" onClick={() => setTemporaryPassword("")}>×</button></div>}
@@ -489,6 +568,29 @@ export default function BackofficePage() {
               </div>
             </section>
           </>}
+
+          {tab === "roles" && <section className="job-management admin-table-section">
+            <div className="section-heading"><div><h2>All job postings</h2><p>Applications are attached to the selected employer or recruiter and are also available here.</p></div><span className="table-count">{jobs.length} roles</span></div>
+            <div className="admin-table">
+              <div className="table-header moderation-columns"><span>ROLE</span><span>EMPLOYER / RECRUITER</span><span>APPLICATIONS</span><span>STATUS</span><span>POSTED</span></div>
+              {jobs.length === 0 ? <div className="table-empty">Roles posted from backoffice will appear here.</div> : jobs.map((job) => <div className="table-row moderation-columns" key={job.id}><strong>{job.title}{job.confidential && <small className="table-secondary"> · Confidential</small>}</strong><span>{job.employer?.backofficeManaged ? "Hirzo" : job.employer?.name || "Employer removed"}</span><span>{job.applicationsCount}</span><span>{statusLabel(job.status)}</span><span>{formatDate(job.createdAt)}</span></div>)}
+            </div>
+          </section>}
+
+          {tab === "applications" && <section className="job-management admin-table-section">
+            <div className="section-heading"><div><h2>All applications</h2><p>Update candidate status and download CVs without leaving backoffice.</p></div><span className="table-count">{applications.length} applications</span></div>
+            <label className="admin-search candidate-search"><span aria-hidden="true">⌕</span><input aria-label="Search applications" placeholder="Search candidates, roles, or employers" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+            <div className="admin-table">
+              <div className="table-header admin-application-columns"><span>CANDIDATE</span><span>ROLE</span><span>EMPLOYER / RECRUITER</span><span>APPLIED</span><span>STATUS</span><span>CV</span></div>
+              {applications.filter((application) => `${application.candidateName} ${application.candidateEmail} ${application.job?.title || ""} ${application.employerName}`.toLowerCase().includes(search.trim().toLowerCase())).map((application) => <div className="table-row admin-application-columns" key={application.id}>
+                <div className="company-cell"><div className="company-monogram">{application.candidateName.slice(0, 1).toUpperCase()}</div><div><strong>{application.candidateName}</strong><small>{application.candidateEmail}</small></div></div>
+                <span>{application.job?.title || "Role removed"}</span><span>{application.employerName}</span><span className="table-secondary">{formatDate(application.createdAt)}</span>
+                <select aria-label={`Status for ${application.candidateName}`} value={application.status} disabled={updatingApplicationId === application.id} onChange={(event) => void updateBackofficeApplication(application, event.target.value as BackofficeApplication["status"])}><option value="applied">Applied</option><option value="shortlisted">Shortlisted</option><option value="interview">Interviewing</option><option value="offer_extended">Offer extended</option><option value="hired">Hired</option><option value="rejected">Rejected</option></select>
+                {application.cvDownloadUrl ? <a className="table-action" href={application.cvDownloadUrl}>Download CV</a> : <span className="table-secondary">No CV</span>}
+              </div>)}
+              {applications.length === 0 && <div className="table-empty">Applications from all roles will appear here when candidates apply.</div>}
+            </div>
+          </section>}
 
           {tab === "moderation" && <section className="job-management admin-table-section">
             <div className="section-heading"><div><h2>Moderation queue</h2><p>Pending and flagged posts are hidden from the public job board.</p></div><span className="table-count">{pendingJobs.length} need review</span></div>
@@ -569,6 +671,25 @@ export default function BackofficePage() {
           </section>}
         </div>
       </section>
+
+      {showRoleForm && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowRoleForm(false); }}>
+        <section className="job-modal" role="dialog" aria-modal="true" aria-labelledby="backoffice-role-title">
+          <div className="modal-heading"><div><div className="eyebrow">BACKOFFICE ROLE</div><h2 id="backoffice-role-title">Post a role</h2></div><button className="icon-button close-button" onClick={() => setShowRoleForm(false)} aria-label="Close">×</button></div>
+          <p className="muted modal-description">Candidates apply through the usual job board flow. Applications stay linked to the account you select and appear in both inboxes.</p>
+          <form onSubmit={createBackofficeRole} className="form-stack modal-form">
+            <label>Post on behalf of<select name="ownerType" value={roleOwnerType} onChange={(event) => setRoleOwnerType(event.target.value as typeof roleOwnerType)}><option value="hirzo">Our own Hirzo role</option><option value="employer">Employer account</option><option value="recruiter">Recruiter account</option></select></label>
+            {roleOwnerType !== "hirzo" && <label>Employer or recruiter account<select name="employerId" required defaultValue=""><option value="" disabled>Select an active account</option>{employers.filter((item) => item.active).map((item) => <option value={item.id} key={item.id}>{item.companyName} · {item.email}</option>)}</select><small className="field-hint">Recruiters use employer accounts in the current system. Select their account to route applications to their workspace.</small></label>}
+            <label>Role title<input name="title" required minLength={3} maxLength={160} placeholder="e.g. Sales Development Representative" /></label>
+            <div className="form-row"><label>Location<input name="location" required minLength={2} maxLength={160} placeholder="London / Remote" /></label><label>Employment type<select name="employmentType" defaultValue="full_time"><option value="full_time">Full time</option><option value="part_time">Part time</option><option value="contract">Contract</option><option value="internship">Internship</option><option value="temporary">Temporary</option></select></label></div>
+            <label>Workplace<select name="workplaceType" defaultValue="onsite"><option value="onsite">On-site</option><option value="hybrid">Hybrid</option><option value="remote">Remote</option></select></label>
+            <div className="form-row"><label>Salary from (£)<input type="number" name="salaryMin" min="0" /></label><label>Salary to (£)<input type="number" name="salaryMax" min="0" /></label></div>
+            <label>About the role<textarea name="description" required minLength={20} rows={6} placeholder="Describe the role, responsibilities, and candidate requirements." /></label>
+            <label className="confidential-job-toggle"><input type="checkbox" name="confidential" /><span><strong>Post confidentially</strong><small>Hide the employer or recruiter identity on the public listing.</small></span></label>
+            <label>Visibility<select name="status" defaultValue="published"><option value="published">Publish now</option><option value="draft">Save as draft</option></select></label>
+            <div className="modal-actions"><button type="button" className="button button-light" onClick={() => setShowRoleForm(false)}>Cancel</button><button type="submit" disabled={creatingRole} className="button button-dark">{creatingRole ? "Posting…" : "Post role"}<span>→</span></button></div>
+          </form>
+        </section>
+      </div>}
 
       {selectedEmployer && <div className="drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedEmployer(null); }}>
         <aside className="employer-drawer" role="dialog" aria-modal="true" aria-labelledby="employer-drawer-title">

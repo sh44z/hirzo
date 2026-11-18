@@ -13,6 +13,7 @@ export interface IEmployer {
   contactName: string;
   active: boolean;
   status: "active" | "paused" | "pending_verification" | "suspended" | "banned";
+  backofficeManaged: boolean;
   jobPostingCredits: JobPostingCredits;
   createdAt: Date;
   updatedAt: Date;
@@ -41,6 +42,7 @@ const EmployerSchema = new Schema<IEmployer>(
       default: "active",
       index: true,
     },
+    backofficeManaged: { type: Boolean, default: false, index: true },
     jobPostingCredits: {
       basic: { type: Number, min: 0, default: 0 },
       premium: { type: Number, min: 0, default: 0 },

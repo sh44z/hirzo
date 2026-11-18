@@ -31,7 +31,7 @@ export const JOB_POSTING_PLANS = {
   },
 } as const;
 
-export const HIRING_TRAINING_AMOUNT = 1800;
+export const HIRING_TRAINING_AMOUNT = 1400;
 
 export type JobPostingPlan = keyof typeof JOB_POSTING_PLANS;
 export type CreditableJobPostingPlan = "basic" | "premium";

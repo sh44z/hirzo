@@ -6,6 +6,9 @@ import { connectDB } from "@/lib/db";
 import { JOB_POSTING_PLANS } from "@/lib/job-posting-plans";
 import { Job } from "@/models/Job";
 import { JobPostingPayment } from "@/models/JobPostingPayment";
+import { Application } from "@/models/Application";
+import { Assignment } from "@/models/Assignment";
+import { MatchResult } from "@/models/MatchResult";
 import { recordAdminAction } from "@/lib/admin-audit";
 
 const updateSchema = z.union([
@@ -24,6 +27,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (!mongoose.Types.ObjectId.isValid(jobId)) {
       return badRequest("Invalid job id");
     }
+
     const parsed = updateSchema.safeParse(await request.json());
     if (!parsed.success) {
       return badRequest(parsed.error.issues[0]?.message || "Invalid job plan");
@@ -80,6 +84,54 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     });
   } catch (error) {
     console.error("Admin job plan update error:", error);
+    return serverError();
+  }
+}
+
+export async function DELETE(_request: NextRequest, { params }: Params) {
+  try {
+    const { session, error } = await requireAdminSession();
+    if (error || !session) return error!;
+
+    const { jobId } = await params;
+    if (!mongoose.Types.ObjectId.isValid(jobId)) {
+      return badRequest("Invalid job id");
+    }
+
+    await connectDB();
+    const job = await Job.findById(jobId);
+    if (!job) return notFound("Job not found");
+
+    const applications = await Application.find({ jobId: job._id })
+      .select("_id")
+      .lean();
+    const applicationIds = applications.map((application) => application._id);
+
+    await recordAdminAction(
+      session,
+      "Deleted job and related applications",
+      "job",
+      job.title,
+      jobId,
+      `${applicationIds.length} application${applicationIds.length === 1 ? "" : "s"} deleted`,
+    );
+    await Promise.all([
+      Assignment.deleteMany({
+        $or: [{ jobId: job._id }, { applicationId: { $in: applicationIds } }],
+      }),
+      MatchResult.deleteMany({
+        $or: [{ jobId: job._id }, { applicationId: { $in: applicationIds } }],
+      }),
+      Application.deleteMany({ jobId: job._id }),
+      JobPostingPayment.deleteMany({
+        $or: [{ jobId: job._id }, { renewalJobId: job._id }],
+      }),
+      Job.findByIdAndDelete(job._id),
+    ]);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Admin job deletion error:", error);
     return serverError();
   }
 }

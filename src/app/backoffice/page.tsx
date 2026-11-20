@@ -58,6 +58,11 @@ type ModerationJob = {
   applicationsCount: number;
   employer: { id: string; name: string; email: string; backofficeManaged: boolean } | null;
 };
+type BackofficeQualificationQuestion = {
+  question: string;
+  expectedAnswer: string;
+  required: boolean;
+};
 type BackofficeApplication = {
   id: string;
   candidateName: string;
@@ -156,6 +161,7 @@ export default function BackofficePage() {
   const [showAdd, setShowAdd] = useState(false);
   const [showRoleForm, setShowRoleForm] = useState(false);
   const [roleOwnerType, setRoleOwnerType] = useState<"hirzo" | "employer" | "recruiter">("hirzo");
+  const [roleQualificationQuestions, setRoleQualificationQuestions] = useState<BackofficeQualificationQuestion[]>([]);
   const [creating, setCreating] = useState(false);
   const [creatingRole, setCreatingRole] = useState(false);
   const [updatingApplicationId, setUpdatingApplicationId] = useState("");
@@ -295,6 +301,20 @@ export default function BackofficePage() {
     }
   }
 
+  async function deleteBackofficeJob(job: ModerationJob) {
+    if (!window.confirm(`Permanently delete “${job.title}” and its ${job.applicationsCount} applicant${job.applicationsCount === 1 ? "" : "s"} and related records? This cannot be undone.`)) return;
+    setSavingJobId(job.id);
+    try {
+      await readResponse(await fetch(`/api/admin/jobs/${job.id}`, { method: "DELETE" }));
+      await loadData();
+      showNotice(`“${job.title}” and its related applicants were deleted.`);
+    } catch (error) {
+      showNotice(error instanceof Error ? error.message : "Could not delete job.", true);
+    } finally {
+      setSavingJobId("");
+    }
+  }
+
   async function updateCandidate(candidate: Candidate, action: "flagged" | "active" | "banned" | "erase") {
     if (action === "erase" && !window.confirm(`Permanently erase ${candidate.name}'s application data and CVs? This cannot be undone.`)) return;
     try {
@@ -377,6 +397,11 @@ export default function BackofficePage() {
     const ownerType = roleOwnerType;
     const salaryMin = String(form.get("salaryMin") || "");
     const salaryMax = String(form.get("salaryMax") || "");
+    const parseRequirementList = (field: string) =>
+      String(form.get(field) || "")
+        .split(/\n|,/)
+        .map((item) => item.trim())
+        .filter(Boolean);
     const payload = {
       title: form.get("title"),
       description: form.get("description"),
@@ -386,6 +411,21 @@ export default function BackofficePage() {
       confidential: form.get("confidential") === "on",
       ...(salaryMin ? { salaryMin: Number(salaryMin) } : {}),
       ...(salaryMax ? { salaryMax: Number(salaryMax) } : {}),
+      qualificationQuestions: roleQualificationQuestions
+        .map((question) => ({
+          question: question.question.trim(),
+          expectedAnswer: question.expectedAnswer.trim(),
+          type: "text",
+          required: question.required,
+        }))
+        .filter((question) => question.question && question.expectedAnswer),
+      requirements: {
+        skills: parseRequirementList("skills"),
+        yearsExperience: Number(form.get("yearsExperience") || 0),
+        qualifications: parseRequirementList("qualifications"),
+        responsibilities: parseRequirementList("responsibilities"),
+        otherRequirements: parseRequirementList("otherRequirements"),
+      },
       status: form.get("status"),
       ownerType,
       ...(ownerType !== "hirzo" ? { employerId: form.get("employerId") } : {}),
@@ -400,6 +440,7 @@ export default function BackofficePage() {
       );
       setShowRoleForm(false);
       setRoleOwnerType("hirzo");
+      setRoleQualificationQuestions([]);
       await loadData();
       showNotice(`“${result.job.title}” was added to roles.`);
     } catch (error) {
@@ -528,7 +569,7 @@ export default function BackofficePage() {
               <p>{tab === "employers" ? "Search, review, and manage every employer on Hirzo." : tab === "roles" ? "Post roles for Hirzo or on behalf of an employer or recruiter account." : tab === "applications" ? "Review applications and move candidates through the same hiring stages used in workspace." : tab === "moderation" ? "Review job posts before they reach job seekers." : tab === "candidates" ? "Review applicants, flag profiles, and manage data requests." : tab === "sales_inquiries" ? "Follow up with employers interested in recruitment and sales training." : tab === "settings" ? "Configure platform-wide defaults and maintenance." : tab === "audit" ? "A time-stamped record of administrative actions." : "Control who has access to the Hirzo backoffice."}</p>
             </div>
             {tab === "accounts" && <button className="button button-dark" onClick={() => setShowAdd(true)}>＋ Add master account</button>}
-            {tab === "roles" && <button className="button button-dark" onClick={() => setShowRoleForm(true)}>＋ Post a role</button>}
+            {tab === "roles" && <button className="button button-dark" onClick={() => { setRoleQualificationQuestions([]); setShowRoleForm(true); }}>＋ Post a role</button>}
           </div>
           {notice && <div className={`notice-banner ${noticeError ? "notice-error" : ""}`} role={noticeError ? "alert" : "status"}><span>{noticeError ? "!" : "✓"}</span>{notice}<button onClick={() => setNotice("")} aria-label="Dismiss">×</button></div>}
           {temporaryPassword && <div className="temporary-password"><div><strong>Temporary password</strong><span>Copy and share this securely. It cannot be retrieved after closing this panel.</span></div><code>{temporaryPassword}</code><button className="table-action" onClick={() => { void navigator.clipboard.writeText(temporaryPassword); showNotice("Temporary password copied."); }}>Copy</button><button className="icon-button" aria-label="Dismiss temporary password" onClick={() => setTemporaryPassword("")}>×</button></div>}
@@ -572,8 +613,8 @@ export default function BackofficePage() {
           {tab === "roles" && <section className="job-management admin-table-section">
             <div className="section-heading"><div><h2>All job postings</h2><p>Applications are attached to the selected employer or recruiter and are also available here.</p></div><span className="table-count">{jobs.length} roles</span></div>
             <div className="admin-table">
-              <div className="table-header moderation-columns"><span>ROLE</span><span>EMPLOYER / RECRUITER</span><span>APPLICATIONS</span><span>STATUS</span><span>POSTED</span></div>
-              {jobs.length === 0 ? <div className="table-empty">Roles posted from backoffice will appear here.</div> : jobs.map((job) => <div className="table-row moderation-columns" key={job.id}><strong>{job.title}{job.confidential && <small className="table-secondary"> · Confidential</small>}</strong><span>{job.employer?.backofficeManaged ? "Hirzo" : job.employer?.name || "Employer removed"}</span><span>{job.applicationsCount}</span><span>{statusLabel(job.status)}</span><span>{formatDate(job.createdAt)}</span></div>)}
+              <div className="table-header role-columns"><span>ROLE</span><span>EMPLOYER / RECRUITER</span><span>APPLICATIONS</span><span>STATUS</span><span>POSTED</span><span>ACTIONS</span></div>
+              {jobs.length === 0 ? <div className="table-empty">Roles posted from backoffice will appear here.</div> : jobs.map((job) => <div className="table-row role-columns" key={job.id}><strong>{job.title}{job.confidential && <small className="table-secondary"> · Confidential</small>}</strong><span>{job.employer?.backofficeManaged ? "Hirzo" : job.employer?.name || "Employer removed"}</span><span>{job.applicationsCount}</span><span>{statusLabel(job.status)}</span><span>{formatDate(job.createdAt)}</span><button className="table-action pause-action" disabled={savingJobId === job.id} onClick={() => void deleteBackofficeJob(job)}>{savingJobId === job.id ? "Deleting…" : "Delete"}</button></div>)}
             </div>
           </section>}
 
@@ -684,6 +725,29 @@ export default function BackofficePage() {
             <label>Workplace<select name="workplaceType" defaultValue="onsite"><option value="onsite">On-site</option><option value="hybrid">Hybrid</option><option value="remote">Remote</option></select></label>
             <div className="form-row"><label>Salary from (£)<input type="number" name="salaryMin" min="0" /></label><label>Salary to (£)<input type="number" name="salaryMax" min="0" /></label></div>
             <label>About the role<textarea name="description" required minLength={20} rows={6} placeholder="Describe the role, responsibilities, and candidate requirements." /></label>
+            <fieldset className="qualification-editor">
+              <legend>Job requirements</legend>
+              <p className="field-hint">Add role-related skills, qualifications, and responsibilities. Add up to 100 items per list. Do not include protected characteristics.</p>
+              <label>Required skills <span className="optional-label">One per line or comma-separated</span><textarea name="skills" rows={3} placeholder={"e.g. Salesforce\nConsultative selling"} /></label>
+              <label>Minimum years of experience<input type="number" name="yearsExperience" min="0" max="60" defaultValue="0" /></label>
+              <label>Qualifications <span className="optional-label">One per line or comma-separated</span><textarea name="qualifications" rows={3} placeholder="e.g. Relevant professional certification" /></label>
+              <label>Responsibilities <span className="optional-label">One per line or comma-separated</span><textarea name="responsibilities" rows={3} placeholder={"e.g. Manage the full sales cycle\nBuild a qualified pipeline"} /></label>
+              <label>Other job-related requirements <span className="optional-label">One per line or comma-separated</span><textarea name="otherRequirements" rows={3} placeholder="e.g. Comfortable presenting to clients" /></label>
+            </fieldset>
+            <fieldset className="qualification-editor">
+              <legend>Qualification questions <span className="optional-label">Optional</span></legend>
+              <p className="field-hint">Ask candidates about relevant experience. Provide an expected answer so applications can be evaluated consistently.</p>
+              {roleQualificationQuestions.map((question, index) => <div className="qualification-editor-row" key={index}>
+                <label className="sr-only" htmlFor={`backoffice-qualification-question-${index}`}>Question {index + 1}</label>
+                <textarea id={`backoffice-qualification-question-${index}`} required minLength={3} rows={2} value={question.question} onChange={(event) => setRoleQualificationQuestions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, question: event.target.value } : item))} placeholder="Do you have relevant experience for this role?" />
+                <label className="qualification-expected-answer">Expected answer<input required maxLength={500} value={question.expectedAnswer} onChange={(event) => setRoleQualificationQuestions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, expectedAnswer: event.target.value } : item))} placeholder="e.g. Yes" /></label>
+                <div className="qualification-question-actions">
+                  <label className="question-required-toggle"><input type="checkbox" checked={question.required} onChange={(event) => setRoleQualificationQuestions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, required: event.target.checked } : item))} />Required</label>
+                  <button type="button" className="button button-light remove-question" aria-label={`Remove question ${index + 1}`} onClick={() => setRoleQualificationQuestions((current) => current.filter((_, itemIndex) => itemIndex !== index))}>Remove</button>
+                </div>
+              </div>)}
+              <button type="button" className="button button-light add-question" onClick={() => setRoleQualificationQuestions((current) => [...current, { question: "", expectedAnswer: "", required: true }])}>＋ Add a question</button>
+            </fieldset>
             <label className="confidential-job-toggle"><input type="checkbox" name="confidential" /><span><strong>Post confidentially</strong><small>Hide the employer or recruiter identity on the public listing.</small></span></label>
             <label>Visibility<select name="status" defaultValue="published"><option value="published">Publish now</option><option value="draft">Save as draft</option></select></label>
             <div className="modal-actions"><button type="button" className="button button-light" onClick={() => setShowRoleForm(false)}>Cancel</button><button type="submit" disabled={creatingRole} className="button button-dark">{creatingRole ? "Posting…" : "Post role"}<span>→</span></button></div>

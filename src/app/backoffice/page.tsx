@@ -7,6 +7,12 @@ import {
   HIRING_TRAINING_AMOUNT,
   JOB_POSTING_PLANS,
 } from "@/lib/job-posting-plans";
+import type {
+  EmploymentType,
+  JobRequirements,
+  QualificationQuestionType,
+  WorkplaceType,
+} from "@/types";
 
 type Admin = { adminId: string; email: string; name: string };
 type EmployerStatus = "active" | "paused" | "pending_verification" | "suspended" | "banned";
@@ -53,6 +59,20 @@ type ModerationJob = {
   status: JobStatus;
   moderationStatus: ModerationStatus;
   location: string;
+  employmentType: EmploymentType;
+  workplaceType?: WorkplaceType;
+  salaryMin?: number;
+  salaryMax?: number;
+  currency?: string;
+  requirements?: Partial<JobRequirements>;
+  qualificationQuestions?: Array<{
+    id?: string;
+    question: string;
+    expectedAnswer?: string;
+    type: QualificationQuestionType;
+    options?: string[];
+    required: boolean;
+  }>;
   confidential: boolean;
   createdAt: string;
   applicationsCount: number;
@@ -61,6 +81,8 @@ type ModerationJob = {
 type BackofficeQualificationQuestion = {
   question: string;
   expectedAnswer: string;
+  type: QualificationQuestionType;
+  options: string[];
   required: boolean;
 };
 type BackofficeApplication = {
@@ -160,10 +182,11 @@ export default function BackofficePage() {
   const [selectedEmployer, setSelectedEmployer] = useState<Employer | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [showRoleForm, setShowRoleForm] = useState(false);
+  const [editingRole, setEditingRole] = useState<ModerationJob | null>(null);
   const [roleOwnerType, setRoleOwnerType] = useState<"hirzo" | "employer" | "recruiter">("hirzo");
   const [roleQualificationQuestions, setRoleQualificationQuestions] = useState<BackofficeQualificationQuestion[]>([]);
   const [creating, setCreating] = useState(false);
-  const [creatingRole, setCreatingRole] = useState(false);
+  const [savingRole, setSavingRole] = useState(false);
   const [updatingApplicationId, setUpdatingApplicationId] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
   const [savingJobId, setSavingJobId] = useState("");
@@ -315,6 +338,20 @@ export default function BackofficePage() {
     }
   }
 
+  function editBackofficeJob(job: ModerationJob) {
+    setEditingRole(job);
+    setRoleQualificationQuestions(
+      (job.qualificationQuestions || []).map((question) => ({
+        question: question.question,
+        expectedAnswer: question.expectedAnswer || "",
+        type: question.type,
+        options: question.options || [],
+        required: question.required,
+      })),
+    );
+    setShowRoleForm(true);
+  }
+
   async function updateCandidate(candidate: Candidate, action: "flagged" | "active" | "banned" | "erase") {
     if (action === "erase" && !window.confirm(`Permanently erase ${candidate.name}'s application data and CVs? This cannot be undone.`)) return;
     try {
@@ -390,9 +427,9 @@ export default function BackofficePage() {
     }
   }
 
-  async function createBackofficeRole(event: FormEvent<HTMLFormElement>) {
+  async function saveBackofficeRole(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setCreatingRole(true);
+    setSavingRole(true);
     const form = new FormData(event.currentTarget);
     const ownerType = roleOwnerType;
     const salaryMin = String(form.get("salaryMin") || "");
@@ -409,13 +446,27 @@ export default function BackofficePage() {
       employmentType: form.get("employmentType"),
       workplaceType: form.get("workplaceType"),
       confidential: form.get("confidential") === "on",
-      ...(salaryMin ? { salaryMin: Number(salaryMin) } : {}),
-      ...(salaryMax ? { salaryMax: Number(salaryMax) } : {}),
+      ...(editingRole
+        ? {
+            salaryMin: salaryMin ? Number(salaryMin) : null,
+            salaryMax: salaryMax ? Number(salaryMax) : null,
+          }
+        : {
+            ...(salaryMin ? { salaryMin: Number(salaryMin) } : {}),
+            ...(salaryMax ? { salaryMax: Number(salaryMax) } : {}),
+          }),
       qualificationQuestions: roleQualificationQuestions
         .map((question) => ({
           question: question.question.trim(),
           expectedAnswer: question.expectedAnswer.trim(),
-          type: "text",
+          type: question.type,
+          ...(question.type === "multiple_choice"
+            ? {
+                options: question.options
+                  .map((option) => option.trim())
+                  .filter(Boolean),
+              }
+            : {}),
           required: question.required,
         }))
         .filter((question) => question.question && question.expectedAnswer),
@@ -427,26 +478,38 @@ export default function BackofficePage() {
         otherRequirements: parseRequirementList("otherRequirements"),
       },
       status: form.get("status"),
-      ownerType,
-      ...(ownerType !== "hirzo" ? { employerId: form.get("employerId") } : {}),
+      ...(!editingRole
+        ? {
+            ownerType,
+            ...(ownerType !== "hirzo" ? { employerId: form.get("employerId") } : {}),
+          }
+        : {}),
     };
     try {
       const result = await readResponse<{ job: { title: string } }>(
-        await fetch("/api/admin/jobs", {
-          method: "POST",
+        await fetch(
+          editingRole ? `/api/admin/jobs/${editingRole.id}` : "/api/admin/jobs",
+          {
+          method: editingRole ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
-        }),
+          },
+        ),
       );
       setShowRoleForm(false);
+      setEditingRole(null);
       setRoleOwnerType("hirzo");
       setRoleQualificationQuestions([]);
       await loadData();
-      showNotice(`“${result.job.title}” was added to roles.`);
+      showNotice(
+        editingRole
+          ? `“${result.job.title}” was updated.`
+          : `“${result.job.title}” was added to roles.`,
+      );
     } catch (error) {
-      showNotice(error instanceof Error ? error.message : "Could not create role.", true);
+      showNotice(error instanceof Error ? error.message : "Could not save role.", true);
     } finally {
-      setCreatingRole(false);
+      setSavingRole(false);
     }
   }
 
@@ -569,7 +632,7 @@ export default function BackofficePage() {
               <p>{tab === "employers" ? "Search, review, and manage every employer on Hirzo." : tab === "roles" ? "Post roles for Hirzo or on behalf of an employer or recruiter account." : tab === "applications" ? "Review applications and move candidates through the same hiring stages used in workspace." : tab === "moderation" ? "Review job posts before they reach job seekers." : tab === "candidates" ? "Review applicants, flag profiles, and manage data requests." : tab === "sales_inquiries" ? "Follow up with employers interested in recruitment and sales training." : tab === "settings" ? "Configure platform-wide defaults and maintenance." : tab === "audit" ? "A time-stamped record of administrative actions." : "Control who has access to the Hirzo backoffice."}</p>
             </div>
             {tab === "accounts" && <button className="button button-dark" onClick={() => setShowAdd(true)}>＋ Add master account</button>}
-            {tab === "roles" && <button className="button button-dark" onClick={() => { setRoleQualificationQuestions([]); setShowRoleForm(true); }}>＋ Post a role</button>}
+            {tab === "roles" && <button className="button button-dark" onClick={() => { setEditingRole(null); setRoleQualificationQuestions([]); setRoleOwnerType("hirzo"); setShowRoleForm(true); }}>＋ Post a role</button>}
           </div>
           {notice && <div className={`notice-banner ${noticeError ? "notice-error" : ""}`} role={noticeError ? "alert" : "status"}><span>{noticeError ? "!" : "✓"}</span>{notice}<button onClick={() => setNotice("")} aria-label="Dismiss">×</button></div>}
           {temporaryPassword && <div className="temporary-password"><div><strong>Temporary password</strong><span>Copy and share this securely. It cannot be retrieved after closing this panel.</span></div><code>{temporaryPassword}</code><button className="table-action" onClick={() => { void navigator.clipboard.writeText(temporaryPassword); showNotice("Temporary password copied."); }}>Copy</button><button className="icon-button" aria-label="Dismiss temporary password" onClick={() => setTemporaryPassword("")}>×</button></div>}
@@ -614,7 +677,7 @@ export default function BackofficePage() {
             <div className="section-heading"><div><h2>All job postings</h2><p>Applications are attached to the selected employer or recruiter and are also available here.</p></div><span className="table-count">{jobs.length} roles</span></div>
             <div className="admin-table">
               <div className="table-header role-columns"><span>ROLE</span><span>EMPLOYER / RECRUITER</span><span>APPLICATIONS</span><span>STATUS</span><span>POSTED</span><span>ACTIONS</span></div>
-              {jobs.length === 0 ? <div className="table-empty">Roles posted from backoffice will appear here.</div> : jobs.map((job) => <div className="table-row role-columns" key={job.id}><strong>{job.title}{job.confidential && <small className="table-secondary"> · Confidential</small>}</strong><span>{job.employer?.backofficeManaged ? "Hirzo" : job.employer?.name || "Employer removed"}</span><span>{job.applicationsCount}</span><span>{statusLabel(job.status)}</span><span>{formatDate(job.createdAt)}</span><button className="table-action pause-action" disabled={savingJobId === job.id} onClick={() => void deleteBackofficeJob(job)}>{savingJobId === job.id ? "Deleting…" : "Delete"}</button></div>)}
+              {jobs.length === 0 ? <div className="table-empty">Roles posted from backoffice will appear here.</div> : jobs.map((job) => <div className="table-row role-columns" key={job.id}><strong>{job.title}{job.confidential && <small className="table-secondary"> · Confidential</small>}</strong><span>{job.employer?.backofficeManaged ? "Hirzo" : job.employer?.name || "Employer removed"}</span><span>{job.applicationsCount}</span><span>{statusLabel(job.status)}</span><span>{formatDate(job.createdAt)}</span><div className="role-actions"><button type="button" className="table-action" onClick={() => editBackofficeJob(job)}>Edit</button><button type="button" className="table-action pause-action" disabled={savingJobId === job.id} onClick={() => void deleteBackofficeJob(job)}>{savingJobId === job.id ? "Deleting…" : "Delete"}</button></div></div>)}
             </div>
           </section>}
 
@@ -713,26 +776,28 @@ export default function BackofficePage() {
         </div>
       </section>
 
-      {showRoleForm && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowRoleForm(false); }}>
+      {showRoleForm && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !savingRole) { setShowRoleForm(false); setEditingRole(null); } }}>
         <section className="job-modal" role="dialog" aria-modal="true" aria-labelledby="backoffice-role-title">
-          <div className="modal-heading"><div><div className="eyebrow">BACKOFFICE ROLE</div><h2 id="backoffice-role-title">Post a role</h2></div><button className="icon-button close-button" onClick={() => setShowRoleForm(false)} aria-label="Close">×</button></div>
+          <div className="modal-heading"><div><div className="eyebrow">BACKOFFICE ROLE</div><h2 id="backoffice-role-title">{editingRole ? "Edit role" : "Post a role"}</h2></div><button className="icon-button close-button" onClick={() => { setShowRoleForm(false); setEditingRole(null); }} aria-label="Close" disabled={savingRole}>×</button></div>
           <p className="muted modal-description">Candidates apply through the usual job board flow. Applications stay linked to the account you select and appear in both inboxes.</p>
-          <form onSubmit={createBackofficeRole} className="form-stack modal-form">
-            <label>Post on behalf of<select name="ownerType" value={roleOwnerType} onChange={(event) => setRoleOwnerType(event.target.value as typeof roleOwnerType)}><option value="hirzo">Our own Hirzo role</option><option value="employer">Employer account</option><option value="recruiter">Recruiter account</option></select></label>
-            {roleOwnerType !== "hirzo" && <label>Employer or recruiter account<select name="employerId" required defaultValue=""><option value="" disabled>Select an active account</option>{employers.filter((item) => item.active).map((item) => <option value={item.id} key={item.id}>{item.companyName} · {item.email}</option>)}</select><small className="field-hint">Recruiters use employer accounts in the current system. Select their account to route applications to their workspace.</small></label>}
-            <label>Role title<input name="title" required minLength={3} maxLength={160} placeholder="e.g. Sales Development Representative" /></label>
-            <div className="form-row"><label>Location<input name="location" required minLength={2} maxLength={160} placeholder="London / Remote" /></label><label>Employment type<select name="employmentType" defaultValue="full_time"><option value="full_time">Full time</option><option value="part_time">Part time</option><option value="contract">Contract</option><option value="internship">Internship</option><option value="temporary">Temporary</option></select></label></div>
-            <label>Workplace<select name="workplaceType" defaultValue="onsite"><option value="onsite">On-site</option><option value="hybrid">Hybrid</option><option value="remote">Remote</option></select></label>
-            <div className="form-row"><label>Salary from (£)<input type="number" name="salaryMin" min="0" /></label><label>Salary to (£)<input type="number" name="salaryMax" min="0" /></label></div>
-            <label>About the role<textarea name="description" required minLength={20} rows={6} placeholder="Describe the role, responsibilities, and candidate requirements." /></label>
+          <form key={editingRole?.id || "new-role"} onSubmit={saveBackofficeRole} className="form-stack modal-form">
+            {editingRole ? <p className="field-hint">Owner: {editingRole.employer?.backofficeManaged ? "Hirzo" : editingRole.employer?.name || "Employer removed"}</p> : <>
+              <label>Post on behalf of<select name="ownerType" value={roleOwnerType} onChange={(event) => setRoleOwnerType(event.target.value as typeof roleOwnerType)}><option value="hirzo">Our own Hirzo role</option><option value="employer">Employer account</option><option value="recruiter">Recruiter account</option></select></label>
+              {roleOwnerType !== "hirzo" && <label>Employer or recruiter account<select name="employerId" required defaultValue=""><option value="" disabled>Select an active account</option>{employers.filter((item) => item.active).map((item) => <option value={item.id} key={item.id}>{item.companyName} · {item.email}</option>)}</select><small className="field-hint">Recruiters use employer accounts in the current system. Select their account to route applications to their workspace.</small></label>}
+            </>}
+            <label>Role title<input name="title" required minLength={3} maxLength={160} defaultValue={editingRole?.title} placeholder="e.g. Sales Development Representative" /></label>
+            <div className="form-row"><label>Location<input name="location" required minLength={2} maxLength={160} defaultValue={editingRole?.location} placeholder="London / Remote" /></label><label>Employment type<select name="employmentType" defaultValue={editingRole?.employmentType || "full_time"}><option value="full_time">Full time</option><option value="part_time">Part time</option><option value="contract">Contract</option><option value="internship">Internship</option><option value="temporary">Temporary</option></select></label></div>
+            <label>Workplace<select name="workplaceType" defaultValue={editingRole?.workplaceType || "onsite"}><option value="onsite">On-site</option><option value="hybrid">Hybrid</option><option value="remote">Remote</option></select></label>
+            <div className="form-row"><label>Salary from ({editingRole?.currency || "GBP"})<input type="number" name="salaryMin" min="0" defaultValue={editingRole?.salaryMin} /></label><label>Salary to ({editingRole?.currency || "GBP"})<input type="number" name="salaryMax" min="0" defaultValue={editingRole?.salaryMax} /></label></div>
+            <label>About the role<textarea name="description" required minLength={20} rows={6} defaultValue={editingRole?.description} placeholder="Describe the role, responsibilities, and candidate requirements." /></label>
             <fieldset className="qualification-editor">
               <legend>Job requirements</legend>
               <p className="field-hint">Add role-related skills, qualifications, and responsibilities. Add up to 100 items per list. Do not include protected characteristics.</p>
-              <label>Required skills <span className="optional-label">One per line or comma-separated</span><textarea name="skills" rows={3} placeholder={"e.g. Salesforce\nConsultative selling"} /></label>
-              <label>Minimum years of experience<input type="number" name="yearsExperience" min="0" max="60" defaultValue="0" /></label>
-              <label>Qualifications <span className="optional-label">One per line or comma-separated</span><textarea name="qualifications" rows={3} placeholder="e.g. Relevant professional certification" /></label>
-              <label>Responsibilities <span className="optional-label">One per line or comma-separated</span><textarea name="responsibilities" rows={3} placeholder={"e.g. Manage the full sales cycle\nBuild a qualified pipeline"} /></label>
-              <label>Other job-related requirements <span className="optional-label">One per line or comma-separated</span><textarea name="otherRequirements" rows={3} placeholder="e.g. Comfortable presenting to clients" /></label>
+              <label>Required skills <span className="optional-label">One per line or comma-separated</span><textarea name="skills" rows={3} defaultValue={editingRole?.requirements?.skills?.join("\n")} placeholder={"e.g. Salesforce\nConsultative selling"} /></label>
+              <label>Minimum years of experience<input type="number" name="yearsExperience" min="0" max="60" defaultValue={editingRole?.requirements?.yearsExperience ?? 0} /></label>
+              <label>Qualifications <span className="optional-label">One per line or comma-separated</span><textarea name="qualifications" rows={3} defaultValue={editingRole?.requirements?.qualifications?.join("\n")} placeholder="e.g. Relevant professional certification" /></label>
+              <label>Responsibilities <span className="optional-label">One per line or comma-separated</span><textarea name="responsibilities" rows={3} defaultValue={editingRole?.requirements?.responsibilities?.join("\n")} placeholder={"e.g. Manage the full sales cycle\nBuild a qualified pipeline"} /></label>
+              <label>Other job-related requirements <span className="optional-label">One per line or comma-separated</span><textarea name="otherRequirements" rows={3} defaultValue={editingRole?.requirements?.otherRequirements?.join("\n")} placeholder="e.g. Comfortable presenting to clients" /></label>
             </fieldset>
             <fieldset className="qualification-editor">
               <legend>Qualification questions <span className="optional-label">Optional</span></legend>
@@ -740,17 +805,19 @@ export default function BackofficePage() {
               {roleQualificationQuestions.map((question, index) => <div className="qualification-editor-row" key={index}>
                 <label className="sr-only" htmlFor={`backoffice-qualification-question-${index}`}>Question {index + 1}</label>
                 <textarea id={`backoffice-qualification-question-${index}`} required minLength={3} rows={2} value={question.question} onChange={(event) => setRoleQualificationQuestions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, question: event.target.value } : item))} placeholder="Do you have relevant experience for this role?" />
+                <label>Answer type<select value={question.type} onChange={(event) => setRoleQualificationQuestions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, type: event.target.value as QualificationQuestionType } : item))}><option value="text">Text</option><option value="yes_no">Yes / No</option><option value="multiple_choice">Multiple choice</option></select></label>
+                {question.type === "multiple_choice" && <label>Answer options <span className="optional-label">One per line or comma-separated</span><textarea rows={2} value={question.options.join("\n")} onChange={(event) => setRoleQualificationQuestions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, options: event.target.value.split(/\n|,/).map((option) => option.trim()) } : item))} /></label>}
                 <label className="qualification-expected-answer">Expected answer<input required maxLength={500} value={question.expectedAnswer} onChange={(event) => setRoleQualificationQuestions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, expectedAnswer: event.target.value } : item))} placeholder="e.g. Yes" /></label>
                 <div className="qualification-question-actions">
                   <label className="question-required-toggle"><input type="checkbox" checked={question.required} onChange={(event) => setRoleQualificationQuestions((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, required: event.target.checked } : item))} />Required</label>
                   <button type="button" className="button button-light remove-question" aria-label={`Remove question ${index + 1}`} onClick={() => setRoleQualificationQuestions((current) => current.filter((_, itemIndex) => itemIndex !== index))}>Remove</button>
                 </div>
               </div>)}
-              <button type="button" className="button button-light add-question" onClick={() => setRoleQualificationQuestions((current) => [...current, { question: "", expectedAnswer: "", required: true }])}>＋ Add a question</button>
+              <button type="button" className="button button-light add-question" onClick={() => setRoleQualificationQuestions((current) => [...current, { question: "", expectedAnswer: "", type: "text", options: [], required: true }])}>＋ Add a question</button>
             </fieldset>
-            <label className="confidential-job-toggle"><input type="checkbox" name="confidential" /><span><strong>Post confidentially</strong><small>Hide the employer or recruiter identity on the public listing.</small></span></label>
-            <label>Visibility<select name="status" defaultValue="published"><option value="published">Publish now</option><option value="draft">Save as draft</option></select></label>
-            <div className="modal-actions"><button type="button" className="button button-light" onClick={() => setShowRoleForm(false)}>Cancel</button><button type="submit" disabled={creatingRole} className="button button-dark">{creatingRole ? "Posting…" : "Post role"}<span>→</span></button></div>
+            <label className="confidential-job-toggle"><input type="checkbox" name="confidential" defaultChecked={editingRole?.confidential} /><span><strong>Post confidentially</strong><small>Hide the employer or recruiter identity on the public listing.</small></span></label>
+            <label>Visibility<select name="status" defaultValue={editingRole?.status || "published"}><option value="published">Publish now</option><option value="draft">Save as draft</option><option value="closed">Closed</option></select></label>
+            <div className="modal-actions"><button type="button" className="button button-light" onClick={() => { setShowRoleForm(false); setEditingRole(null); }} disabled={savingRole}>Cancel</button><button type="submit" disabled={savingRole} className="button button-dark">{savingRole ? "Saving…" : editingRole ? "Save changes" : "Post role"}<span>→</span></button></div>
           </form>
         </section>
       </div>}

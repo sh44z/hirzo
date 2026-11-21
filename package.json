@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "bcryptjs": "^3.0.2",
     "jose": "^6.0.11",
     "mammoth": "^1.13.0",
